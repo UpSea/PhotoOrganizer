@@ -13,6 +13,7 @@ import os.path
 from glob import glob
 from PIL import Image
 from io import BytesIO
+import imagehash
 
 
 class myWindow(QtGui.QMainWindow):
@@ -82,6 +83,7 @@ class myWindow(QtGui.QMainWindow):
             # Read the scaled image into a byte array
             im = Image.open(path)
             exif = im._getexif()
+            hsh = imagehash.average_hash(im)
             date = exif[36867] if exif else "Unknown"
             im.thumbnail((400, 400))
             fp = BytesIO()
@@ -98,6 +100,7 @@ class myWindow(QtGui.QMainWindow):
             fname = os.path.split(path)[1]
             self.model.setItem(k, 1, QtGui.QStandardItem(fname))
             self.model.setItem(k, 2, QtGui.QStandardItem(date))
+            self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
             self.view.resizeColumnToContents(k)
             self.view.resizeRowToContents(k)
 
