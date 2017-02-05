@@ -15,7 +15,7 @@ from PIL import Image
 from io import BytesIO
 import imagehash
 from UIFiles import Ui_PicOrganizer as uiclassf
-
+import sqlite3
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
@@ -46,6 +46,14 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.horizontalHeader = self.view.horizontalHeader()
         self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
+
+        # Set up combobox
+        columns = ['Image', 'File Name', 'DateTime', 'Hash']
+        self.comboBox.addItems(columns[1:])
+        self.comboBox.setCurrentIndex(1)
+
+        # Set up the column headings
+        self.model.setHorizontalHeaderLabels(columns)
 
     def populate(self, directory, calc_hash=False):
         """Populate the table with images from directory
@@ -90,17 +98,35 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             # Allow the application to stay responsive and show the progress
             QtGui.QApplication.processEvents()
 
-        # Resize the rows and columns
-        self.setWidthHeight()
+    def populateFromDatabase(self, dbfile):
+        qry = 'SELECT directory, filename, date, hash, thumbnail '+\
+              'FROM File'
+        with sqlite3.connect(dbfile) as con:
+            cur = con.cursor()
+            cur.execute(qry)
+            for k, row in enumerate(cur):
+                fname = row[1]
+                date = row[2]
+                hsh = row[3]
+                data = row[4]
+                fp = BytesIO(data)
 
-        # Set up combobox
-        cols = self.model.columnCount()
-        self.comboBox.addItems(["Column {}".format(a) for a in range(2, cols+1)])
-        self.comboBox.setCurrentIndex(1)
+                # Create the QPixmap from the byte array
+                pix = QtGui.QPixmap()
+                pix.loadFromData(fp.getvalue())
 
-        # Set up the column headings
-        self.model.setHorizontalHeaderLabels(['Image', 'File Name', 'DateTime',
-                                              'Hash'])
+                # Add the model items
+                imgItem = QtGui.QStandardItem()
+                imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
+                self.model.setItem(k, 0, imgItem)
+                self.model.setItem(k, 1, QtGui.QStandardItem(fname))
+                self.model.setItem(k, 2, QtGui.QStandardItem(date))
+                self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
+                self.view.resizeColumnToContents(k)
+                self.view.resizeRowToContents(k)
+
+                # Allow the application to stay responsive and show the progress
+                QtGui.QApplication.processEvents()
 
     def setWidthHeight(self):
         """Set the width and height of the table columns/rows
@@ -252,7 +278,8 @@ if __name__ == "__main__":
     main.resize(800, 600)
     main.show()
 
-    directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
-    main.populate(directory)
+#     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
+#     main.populate(directory)
+    main.populateFromDatabase('TestDb.db')
 
     sys.exit(app.exec_())
