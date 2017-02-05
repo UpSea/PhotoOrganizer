@@ -41,10 +41,12 @@ class myWindow(QtWidgets.QMainWindow):
         self.model = QtGui.QStandardItemModel(self)
         self.proxy = QtCore.QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
+        self.proxy.setFilterKeyColumn(2)
 
         self.view = QtWidgets.QTableView(self.centralwidget)
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
+        self.view.setSortingEnabled(True)
 
         # Lay out the widgets
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -58,8 +60,10 @@ class myWindow(QtWidgets.QMainWindow):
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.comboBox.currentIndexChanged.connect(self.on_comboBox_currentIndexChanged)
 
+        # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
-        self.horizontalHeader.sectionClicked.connect(self.on_view_horizontalHeader_sectionClicked)
+        self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
 
     def populate(self, directory):
         """Populate the table with images from directory
@@ -79,6 +83,8 @@ class myWindow(QtWidgets.QMainWindow):
         for k, path in enumerate(images):
             # Read the scaled image into a byte array
             im = Image.open(path)
+            exif = im._getexif()
+            date = exif[36867] if exif else "Unknown"
             im.thumbnail((400, 400))
             fp = BytesIO()
             im.save(fp, 'png')
@@ -93,7 +99,7 @@ class myWindow(QtWidgets.QMainWindow):
             self.model.setItem(k, 0, imgItem)
             fname = os.path.split(path)[1]
             self.model.setItem(k, 1, QtGui.QStandardItem(fname))
-            self.model.setItem(k, 2, QtGui.QStandardItem(str(k//2)))
+            self.model.setItem(k, 2, QtGui.QStandardItem(date))
             self.view.resizeColumnToContents(k)
             self.view.resizeRowToContents(k)
 
@@ -122,16 +128,17 @@ class myWindow(QtWidgets.QMainWindow):
         self.view.setIconSize(QtCore.QSize(size, size))
         self.setWidthHeight()
 
-    @QtCore.pyqtSlot(int)
-    def on_view_horizontalHeader_sectionClicked(self, logicalIndex):
+    @QtCore.pyqtSlot(QtCore.QPoint)
+    def on_headerContext_requested(self, point):
         """Set up context menu for column filter.
 
-        Slot for the horizontal header.
+        Slot for the horizontal header
 
         Arguments:
-            logicalIndex (int): The logical index of the clicked column head
+            point (QPoint): The relative position of the mouse when clicked
         """
-        if logicalIndex == 0:
+        logicalIndex = self.horizontalHeader.logicalIndexAt(point)
+        if logicalIndex < 0:
             return
         self.logicalIndex = logicalIndex
         self.menuValues = QtWidgets.QMenu(self)
@@ -140,6 +147,10 @@ class myWindow(QtWidgets.QMainWindow):
         valuesUnique = [self.model.item(row, self.logicalIndex).text()
                         for row in range(self.model.rowCount())]
 
+        actionSort = QtWidgets.QAction("Sort", self)
+        actionSort.triggered.connect(self.on_sort_triggered)
+        self.menuValues.addAction(actionSort)
+        self.menuValues.addSeparator()
         actionAll = QtWidgets.QAction("All", self)
         actionAll.triggered.connect(self.on_actionAll_triggered)
         self.menuValues.addAction(actionAll)
@@ -153,12 +164,7 @@ class myWindow(QtWidgets.QMainWindow):
 
         self.signalMapper.mapped[str].connect(self.on_signalMapper_mapped)
 
-        headerPos = self.view.mapToGlobal(self.horizontalHeader.pos())
-
-        posY = headerPos.y() + self.horizontalHeader.height()
-        posX = headerPos.x() + self.horizontalHeader.sectionPosition(self.logicalIndex)
-
-        self.menuValues.exec_(QtCore.QPoint(posX, posY))
+        self.menuValues.exec_(self.horizontalHeader.mapToGlobal(point))
 
     @QtCore.pyqtSlot()
     def on_actionAll_triggered(self):
@@ -174,6 +180,14 @@ class myWindow(QtWidgets.QMainWindow):
         self.setComboIndex(filterColumn)
         self.setWidthHeight()
         self.lineEdit.setText('')
+
+    @QtCore.pyqtSlot()
+    def on_sort_triggered(self):
+        """Sort by the clicked column"""
+        so = {QtCore.Qt.AscendingOrder: QtCore.Qt.DescendingOrder,
+              QtCore.Qt.DescendingOrder: QtCore.Qt.AscendingOrder}
+        self.view.sortByColumn(self.logicalIndex,
+                               so[self.horizontalHeader.sortIndicatorOrder()])
 
     @QtCore.pyqtSlot(str)
     def on_signalMapper_mapped(self, pattern):
