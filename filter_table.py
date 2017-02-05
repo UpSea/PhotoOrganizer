@@ -64,7 +64,7 @@ class myWindow(QtGui.QMainWindow):
         self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
 
-    def populate(self, directory):
+    def populate(self, directory, calc_hash=False):
         """Populate the table with images from directory
 
         Arguments:
@@ -83,7 +83,7 @@ class myWindow(QtGui.QMainWindow):
             # Read the scaled image into a byte array
             im = Image.open(path)
             exif = im._getexif()
-            hsh = imagehash.average_hash(im)
+            hsh = imagehash.average_hash(im) if calc_hash else ''
             date = exif[36867] if exif else "Unknown"
             im.thumbnail((400, 400))
             fp = BytesIO()
@@ -124,6 +124,24 @@ class myWindow(QtGui.QMainWindow):
         self.view.setColumnWidth(0, self.iconSize)
         self.view.resizeRowsToContents()
 
+    def setFilter(self, pattern=None, column=None):
+        """Set the table filter
+
+        Arguments:
+            pattern (str):  (None) The string to use in the regex filter. If
+                none is given, it will be left as-is. If the empty string is
+                given, it will be cleared.
+            column (int): (None) The column to filter. If none is given, it
+                will be left as-is
+        """
+        # Set the pattern
+        if pattern is not None:
+            self.lineEdit.setText(pattern)
+
+        # Set the column
+        if column is not None:
+            self.comboBox.setCurrentIndex(column-1)
+
     @QtCore.pyqtSlot(int)
     def setIconSize(self, size):
         """Resize the image thumbnails. Slot for the slider
@@ -151,7 +169,7 @@ class myWindow(QtGui.QMainWindow):
         self.signalMapper = QtCore.QSignalMapper(self)
 
         valuesUnique = [self.model.item(row, self.logicalIndex).text()
-                        for row in range(self.model.rowCount())]
+                  for row in range(self.model.rowCount())]
 
         actionSort = QtGui.QAction("Sort", self)
         actionSort.triggered.connect(self.on_sort_triggered)
@@ -178,14 +196,7 @@ class myWindow(QtGui.QMainWindow):
 
         Slot for the context menu action
         """
-        filterColumn = self.logicalIndex
-        filterString = QtCore.QRegExp("", QtCore.Qt.CaseInsensitive,
-                                      QtCore.QRegExp.RegExp)
-
-        self.proxy.setFilterRegExp(filterString)
-        self.setComboIndex(filterColumn)
-        self.setWidthHeight()
-        self.lineEdit.setText('')
+        self.setFilter('', self.logicalIndex)
 
     @QtCore.pyqtSlot()
     def on_sort_triggered(self):
@@ -204,15 +215,7 @@ class myWindow(QtGui.QMainWindow):
         Arguments:
             pattern (str): The pattern for the regular expression
         """
-        filterColumn = self.logicalIndex
-        filterString = QtCore.QRegExp(pattern,
-                                      QtCore.Qt.CaseSensitive,
-                                      QtCore.QRegExp.FixedString)
-
-        self.proxy.setFilterRegExp(filterString)
-        self.setComboIndex(filterColumn)
-        self.lineEdit.setText(pattern)
-        self.setWidthHeight()
+        self.setFilter(pattern, self.logicalIndex)
 
     @QtCore.pyqtSlot(str)
     def on_lineEdit_textChanged(self, pattern):
@@ -241,18 +244,6 @@ class myWindow(QtGui.QMainWindow):
         """
         self.proxy.setFilterKeyColumn(index+1)
         self.setWidthHeight()
-
-    def setComboIndex(self, column):
-        """Change the comboBox and filter key column
-
-        Arguments:
-            column (int): The column to filter (Combo box will be set to column
-                minus 1
-        """
-        self.proxy.setFilterKeyColumn(column)
-        self.comboBox.blockSignals(True)
-        self.comboBox.setCurrentIndex(column-1)
-        self.comboBox.blockSignals(False)
 
     @property
     def iconSize(self):
