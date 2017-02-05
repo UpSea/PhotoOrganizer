@@ -30,8 +30,6 @@ class myWindow(QtGui.QMainWindow):
         self.lineEdit = QtGui.QLineEdit(self.centralwidget)
 
         self.comboBox = QtGui.QComboBox(self.centralwidget)
-        self.comboBox.addItems(["Column 1", "Column 2"])
-        self.comboBox.setCurrentIndex(1)
 
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralwidget)
         self.slider.setRange(20, 400)
@@ -80,7 +78,7 @@ class myWindow(QtGui.QMainWindow):
             images.extend(glob(pattern))
 
         # Loop over all images and add to the table
-        for k, path in enumerate(images):
+        for k, path in enumerate(images[:4]):
             # Read the scaled image into a byte array
             im = Image.open(path)
             exif = im._getexif()
@@ -108,6 +106,11 @@ class myWindow(QtGui.QMainWindow):
 
         # Resize the rows and columns
         self.setWidthHeight()
+
+        # Set up combobox
+        cols = self.model.columnCount()
+        self.comboBox.addItems(["Column {}".format(a) for a in range(2, cols+1)])
+        self.comboBox.setCurrentIndex(1)
 
     def setWidthHeight(self):
         """Set the width and height of the table columns/rows
