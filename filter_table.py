@@ -115,6 +115,10 @@ class myWindow(QtGui.QMainWindow):
         self.comboBox.addItems(["Column {}".format(a) for a in range(2, cols+1)])
         self.comboBox.setCurrentIndex(1)
 
+        # Set up the column headings
+        self.model.setHorizontalHeaderLabels(['Image', 'File Name', 'DateTime',
+                                              'Hash'])
+
     def setWidthHeight(self):
         """Set the width and height of the table columns/rows
 
@@ -168,8 +172,14 @@ class myWindow(QtGui.QMainWindow):
         self.menuValues = QtGui.QMenu(self)
         self.signalMapper = QtCore.QSignalMapper(self)
 
-        valuesUnique = [self.model.item(row, self.logicalIndex).text()
+        values = [str(self.model.item(row, self.logicalIndex).text())
                   for row in range(self.model.rowCount())]
+        valuesUnique = sorted(list(set(values)))
+        if '' in valuesUnique:
+            valuesUnique.remove('')
+
+        if not valuesUnique:
+            return
 
         actionSort = QtGui.QAction("Sort", self)
         actionSort.triggered.connect(self.on_sort_triggered)
@@ -180,7 +190,7 @@ class myWindow(QtGui.QMainWindow):
         self.menuValues.addAction(actionAll)
         self.menuValues.addSeparator()
 
-        for actionName in sorted(list(set(valuesUnique))):
+        for actionName in valuesUnique:
             action = QtGui.QAction(actionName, self)
             self.signalMapper.setMapping(action, actionName)
             action.triggered.connect(self.signalMapper.map)
