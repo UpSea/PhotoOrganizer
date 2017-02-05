@@ -8,48 +8,48 @@ https://forum.qt.io/topic/62180/resizing-image-to-display-in-tableview
 and
 http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt4 import QtCore, QtGui
 import os.path
 from glob import glob
 from PIL import Image
 from io import BytesIO
 
 
-class myWindow(QtWidgets.QMainWindow):
+class myWindow(QtGui.QMainWindow):
     """An application for filtering image data and thumbnails"""
 
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super(myWindow, self).__init__(parent)
         # Initialize and configure the widgets
-        self.centralwidget = QtWidgets.QWidget(self)
+        self.centralwidget = QtGui.QWidget(self)
         self.setCentralWidget(self.centralwidget)
 
-        self.label = QtWidgets.QLabel(self.centralwidget)
+        self.label = QtGui.QLabel(self.centralwidget)
         self.label.setText("Regex Filter")
 
-        self.lineEdit = QtWidgets.QLineEdit(self.centralwidget)
+        self.lineEdit = QtGui.QLineEdit(self.centralwidget)
 
-        self.comboBox = QtWidgets.QComboBox(self.centralwidget)
+        self.comboBox = QtGui.QComboBox(self.centralwidget)
         self.comboBox.addItems(["Column 1", "Column 2"])
         self.comboBox.setCurrentIndex(1)
 
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self.centralwidget)
+        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralwidget)
         self.slider.setRange(20, 400)
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.setIconSize)
 
         self.model = QtGui.QStandardItemModel(self)
-        self.proxy = QtCore.QSortFilterProxyModel(self)
+        self.proxy = QtGui.QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
 
-        self.view = QtWidgets.QTableView(self.centralwidget)
+        self.view = QtGui.QTableView(self.centralwidget)
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
 
         # Lay out the widgets
-        self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
+        self.gridLayout = QtGui.QGridLayout(self.centralwidget)
         self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.lineEdit, 0, 1, 1, 1)
         self.gridLayout.addWidget(self.comboBox, 0, 2, 1, 1)
@@ -104,7 +104,7 @@ class myWindow(QtWidgets.QMainWindow):
             self.view.resizeRowToContents(k)
 
             # Allow the application to stay responsive and show the progress
-            QtWidgets.QApplication.processEvents()
+            QtGui.QApplication.processEvents()
 
         # Resize the rows and columns
         self.setWidthHeight()
@@ -141,23 +141,23 @@ class myWindow(QtWidgets.QMainWindow):
         if logicalIndex < 0:
             return
         self.logicalIndex = logicalIndex
-        self.menuValues = QtWidgets.QMenu(self)
+        self.menuValues = QtGui.QMenu(self)
         self.signalMapper = QtCore.QSignalMapper(self)
 
         valuesUnique = [self.model.item(row, self.logicalIndex).text()
                         for row in range(self.model.rowCount())]
 
-        actionSort = QtWidgets.QAction("Sort", self)
+        actionSort = QtGui.QAction("Sort", self)
         actionSort.triggered.connect(self.on_sort_triggered)
         self.menuValues.addAction(actionSort)
         self.menuValues.addSeparator()
-        actionAll = QtWidgets.QAction("All", self)
+        actionAll = QtGui.QAction("All", self)
         actionAll.triggered.connect(self.on_actionAll_triggered)
         self.menuValues.addAction(actionAll)
         self.menuValues.addSeparator()
 
         for actionName in sorted(list(set(valuesUnique))):
-            action = QtWidgets.QAction(actionName, self)
+            action = QtGui.QAction(actionName, self)
             self.signalMapper.setMapping(action, actionName)
             action.triggered.connect(self.signalMapper.map)
             self.menuValues.addAction(action)
@@ -257,7 +257,7 @@ class myWindow(QtWidgets.QMainWindow):
 if __name__ == "__main__":
     import sys
 
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtGui.QApplication(sys.argv)
     main = myWindow()
     main.resize(800, 600)
     main.show()
