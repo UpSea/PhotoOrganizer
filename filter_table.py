@@ -14,25 +14,17 @@ from glob import glob
 from PIL import Image
 from io import BytesIO
 import imagehash
+from UIFiles import Ui_PicOrganizer as uiclassf
 
 
-class myWindow(QtGui.QMainWindow):
+class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
-        # Initialize and configure the widgets
-        self.centralwidget = QtGui.QWidget(self)
-        self.setCentralWidget(self.centralwidget)
+        self.setupUi(self)
 
-        self.label = QtGui.QLabel(self.centralwidget)
-        self.label.setText("Regex Filter")
-
-        self.lineEdit = QtGui.QLineEdit(self.centralwidget)
-
-        self.comboBox = QtGui.QComboBox(self.centralwidget)
-
-        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal, self.centralwidget)
+        # Set up the widgets
         self.slider.setRange(20, 400)
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.setIconSize)
@@ -42,18 +34,9 @@ class myWindow(QtGui.QMainWindow):
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
 
-        self.view = QtGui.QTableView(self.centralwidget)
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
-
-        # Lay out the widgets
-        self.gridLayout = QtGui.QGridLayout(self.centralwidget)
-        self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
-        self.gridLayout.addWidget(self.lineEdit, 0, 1, 1, 1)
-        self.gridLayout.addWidget(self.comboBox, 0, 2, 1, 1)
-        self.gridLayout.addWidget(self.slider, 0, 3, 1, 1)
-        self.gridLayout.addWidget(self.view, 1, 0, 1, 4)
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
