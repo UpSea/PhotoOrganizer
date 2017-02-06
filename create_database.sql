@@ -22,3 +22,7 @@ DROP TABLE IF EXISTS People;
 CREATE TABLE People (PeoId INTEGER PRIMARY KEY AUTOINCREMENT,
                      FilId INTEGER,
                      Person TEXT);
+
+DROP TABLE IF EXISTS AppData;
+CREATE TABLE AppData (AppFileVersion TEXT);
+INSERT INTO AppData VALUES ('0.0.1');
