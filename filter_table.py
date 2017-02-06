@@ -16,20 +16,26 @@ from io import BytesIO
 import imagehash
 from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
+import re
+
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
+    columns = ['Image', 'File Name', 'Date', 'Hash', 'Location', 'FileId']
+
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
         self.setupUi(self)
+        self.databaseFile = None
 
         # Set up the widgets
         self.slider.setRange(20, 400)
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.setIconSize)
 
-        self.model = QtGui.QStandardItemModel(self)
+        self.model = QtGui.QStandardItemModel(0, len(self.columns), self)
+        self.model.itemChanged.connect(self.on_itemChanged)
         self.proxy = QtGui.QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
@@ -37,6 +43,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
+        self.view.setColumnHidden(self.columns.index('FileId'), True)
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
@@ -48,12 +55,11 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
 
         # Set up combobox
-        columns = ['Image', 'File Name', 'DateTime', 'Hash']
-        self.comboBox.addItems(columns[1:])
+        self.comboBox.addItems(self.columns[1:])
         self.comboBox.setCurrentIndex(1)
 
         # Set up the column headings
-        self.model.setHorizontalHeaderLabels(columns)
+        self.model.setHorizontalHeaderLabels(self.columns)
 
     def populate(self, directory, calc_hash=False):
         """Populate the table with images from directory
@@ -62,6 +68,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         directory (str): The directory containing the desired image files
         """
         # Get the list of images with valid extensions
+        self.model.itemChanged.disconnect(self.on_itemChanged)
         images = []
         ext = [fmt.data().decode('utf-8')
                for fmt in QtGui.QImageReader().supportedImageFormats()]
@@ -97,19 +104,31 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
             # Allow the application to stay responsive and show the progress
             QtGui.QApplication.processEvents()
+        self.model.itemChanged.connect(self.on_itemChanged)
 
     def populateFromDatabase(self, dbfile):
-        qry = 'SELECT directory, filename, date, hash, thumbnail '+\
-              'FROM File'
-        with sqlite3.connect(dbfile) as con:
+        self.model.itemChanged.disconnect(self.on_itemChanged)
+        self.databaseFile = dbfile
+        qry = 'SELECT directory, filename, date, hash, thumbnail, '+\
+              'FilId FROM File'
+        with sqlite(dbfile) as con:
             cur = con.cursor()
+            cur2 = con.cursor()
             cur.execute(qry)
             for k, row in enumerate(cur):
                 fname = row[1]
                 date = row[2]
                 hsh = row[3]
                 data = row[4]
+                fileId = row[5]
                 fp = BytesIO(data)
+
+                lqry = 'SELECT l.location FROM File as f '+\
+                       'JOIN FileLoc as fl ON f.FilId == fl.FilId '+\
+                       'JOIN Locations as l ON fl.LocId == l.LocId '+\
+                       'WHERE f.FilId == ?'
+                cur2.execute(lqry, [fileId])
+                location = ', '.join([l[0] for l in cur2.fetchall()])
 
                 # Create the QPixmap from the byte array
                 pix = QtGui.QPixmap()
@@ -118,15 +137,23 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Add the model items
                 imgItem = QtGui.QStandardItem()
                 imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
-                self.model.setItem(k, 0, imgItem)
-                self.model.setItem(k, 1, QtGui.QStandardItem(fname))
-                self.model.setItem(k, 2, QtGui.QStandardItem(date))
-                self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
+                self.model.setItem(k, self.columnByName('Image'), imgItem)
+                self.model.setItem(k, self.columnByName('file name'),
+                                   QtGui.QStandardItem(fname))
+                self.model.setItem(k, self.columnByName('date'),
+                                   QtGui.QStandardItem(date))
+                self.model.setItem(k, self.columnByName('hash'),
+                                   QtGui.QStandardItem(str(hsh)))
+                self.model.setItem(k, self.columnByName('fileId'),
+                                   QtGui.QStandardItem(str(fileId)))
+                self.model.setItem(k, self.columnByName('location'),
+                                   QtGui.QStandardItem(location))
                 self.view.resizeColumnToContents(k)
                 self.view.resizeRowToContents(k)
 
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
+        self.model.itemChanged.connect(self.on_itemChanged)
 
     def setWidthHeight(self):
         """Set the width and height of the table columns/rows
@@ -154,6 +181,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Set the column
         if column is not None:
             self.comboBox.setCurrentIndex(column-1)
+
+    def columnByName(self, name):
+        cols = [k.lower() for k in self.columns]
+        return cols.index(name.lower())
 
     @QtCore.pyqtSlot(int)
     def setIconSize(self, size):
@@ -264,10 +295,56 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.proxy.setFilterKeyColumn(index+1)
         self.setWidthHeight()
 
+    @QtCore.pyqtSlot(QtGui.QStandardItem)
+    def on_itemChanged(self, item):
+        col = self.columnByName('fileid')
+        row = item.row()
+        fileId = self.model.data(self.model.index(row, col)).toInt()[0]
+        # Get the new locations
+        new_locs = [k.strip() for k in re.split(';|,', str(item.text()))
+                    if k.strip() != '']
+        with sqlite(self.databaseFile) as con:
+            cur = con.cursor()
+            cur.execute('SELECT LocId, Location FROM Locations')
+            existing = {k[1].lower(): k[0] for k in cur.fetchall()}
+            for new_loc in new_locs:
+                if new_loc.strip() == '':
+                    continue
+                if new_loc.lower() not in existing:
+                    # INSERT new location
+                    q = 'INSERT OR IGNORE INTO Locations (Location) VALUES (?)'
+                    cur.execute(q, [new_loc])
+                    locId = cur.lastrowid
+                else:
+                    locId = existing[new_loc.lower()]
+
+                # Insert FileLoc mapping (ON CONFLICT IGNORE)
+                q = 'INSERT OR IGNORE INTO FileLoc (FilId, LocId) VALUES (?,?)'
+                cur.execute(q, [fileId, locId])
+
+            # Remove deleted locations
+            loc_literals = ['?'] * len(new_locs)
+            params = ','.join(loc_literals)
+            q = "DELETE From FileLoc WHERE FilId == ? AND "+\
+                "(SELECT Location FROM Locations as l WHERE "+\
+                "l.LocId == FileLoc.LocId) NOT IN ({})".format(params)
+            cur.execute(q, [fileId] + new_locs)
+
+            # Remove them unused tags
+            q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
+                '(SELECT LocId FROM FileLoc)'
+            cur.execute(q)
+
     @property
     def iconSize(self):
         size = self.view.iconSize()
         return max(size.width(), size.height())
+
+
+def sqlite(dbfile):
+    con = sqlite3.connect(dbfile)
+    con.execute('pragma foreign_keys = 1')
+    return con
 
 
 if __name__ == "__main__":
@@ -280,6 +357,6 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-    main.populateFromDatabase('TestDb.db')
+    main.populateFromDatabase('TestDb2.db')
 
     sys.exit(app.exec_())
