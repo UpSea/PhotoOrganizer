@@ -334,6 +334,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
                 '(SELECT LocId FROM FileLoc)'
             cur.execute(q)
+        self.proxy.invalidate()
 
     @property
     def iconSize(self):
