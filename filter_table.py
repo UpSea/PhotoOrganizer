@@ -17,12 +17,18 @@ import imagehash
 from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
 import re
+from datastore import AlbumModel, Album, Photo, FieldObjectContainer
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    columns = ['Image', 'File Name', 'Date', 'Hash', 'Location', 'FileId']
+    columns = ['Image', 'File Name', 'Date', 'Hash', 'Tags', 'FileId']
+    types = [bool, str, str, str, str, int]
+    editable = [True, False, False, False, True, False]
+    hidden = [False, False, False, True, False, True]
+    # Need to implement editable and hidden inputs to FieldObjectContainer
+    fields = FieldObjectContainer(columns, types)
 
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
@@ -32,10 +38,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Set up the widgets
         self.slider.setRange(20, 400)
         self.slider.setValue(100)
-        self.slider.valueChanged.connect(self.setIconSize)
+        self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
-        self.model = QtGui.QStandardItemModel(0, len(self.columns), self)
-        self.model.itemChanged.connect(self.on_itemChanged)
+        # Instantiate an empty dataset and model
+        self.album = Album()
+        self.model = AlbumModel(self.album)
+
+        self.model.dataChanged.connect(self.on_dataChanged)
         self.proxy = QtGui.QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
@@ -54,60 +63,58 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
 
+        self.verticalHeader = self.view.verticalHeader()
+
         # Set up combobox
         self.comboBox.addItems(self.columns[1:])
         self.comboBox.setCurrentIndex(1)
 
-        # Set up the column headings
-        self.model.setHorizontalHeaderLabels(self.columns)
-
-    def populate(self, directory, calc_hash=False):
-        """Populate the table with images from directory
-
-        Arguments:
-        directory (str): The directory containing the desired image files
-        """
-        # Get the list of images with valid extensions
-        self.model.itemChanged.disconnect(self.on_itemChanged)
-        images = []
-        ext = [fmt.data().decode('utf-8')
-               for fmt in QtGui.QImageReader().supportedImageFormats()]
-        for extension in ext:
-            pattern = os.path.join(directory, '*.%s' % extension)
-            images.extend(glob(pattern))
-
-        # Loop over all images and add to the table
-        for k, path in enumerate(images[:4]):
-            # Read the scaled image into a byte array
-            im = Image.open(path)
-            exif = im._getexif()
-            hsh = imagehash.average_hash(im) if calc_hash else ''
-            date = exif[36867] if exif else "Unknown"
-            im.thumbnail((400, 400))
-            fp = BytesIO()
-            im.save(fp, 'png')
-
-            # Create the QPixmap from the byte array
-            pix = QtGui.QPixmap()
-            pix.loadFromData(fp.getvalue())
-
-            # Add the model items
-            imgItem = QtGui.QStandardItem()
-            imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
-            self.model.setItem(k, 0, imgItem)
-            fname = os.path.split(path)[1]
-            self.model.setItem(k, 1, QtGui.QStandardItem(fname))
-            self.model.setItem(k, 2, QtGui.QStandardItem(date))
-            self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
-            self.view.resizeColumnToContents(k)
-            self.view.resizeRowToContents(k)
-
-            # Allow the application to stay responsive and show the progress
-            QtGui.QApplication.processEvents()
-        self.model.itemChanged.connect(self.on_itemChanged)
+#     def populate(self, directory, calc_hash=False):
+#         """Populate the table with images from directory
+#
+#         Arguments:
+#         directory (str): The directory containing the desired image files
+#         """
+#         # Get the list of images with valid extensions
+#         images = []
+#         ext = [fmt.data().decode('utf-8')
+#                for fmt in QtGui.QImageReader().supportedImageFormats()]
+#         for extension in ext:
+#             pattern = os.path.join(directory, '*.%s' % extension)
+#             images.extend(glob(pattern))
+#
+#         # Loop over all images and add to the table
+#         for k, path in enumerate(images[:4]):
+#             # Read the scaled image into a byte array
+#             im = Image.open(path)
+#             exif = im._getexif()
+#             hsh = imagehash.average_hash(im) if calc_hash else ''
+#             date = exif[36867] if exif else "Unknown"
+#             im.thumbnail((400, 400))
+#             fp = BytesIO()
+#             im.save(fp, 'png')
+#
+#             # Create the QPixmap from the byte array
+#             pix = QtGui.QPixmap()
+#             pix.loadFromData(fp.getvalue())
+#
+#             # Add the model items
+#             imgItem = QtGui.QStandardItem()
+#             imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
+#             self.model.setItem(k, 0, imgItem)
+#             fname = os.path.split(path)[1]
+#             self.model.setItem(k, 1, QtGui.QStandardItem(fname))
+#             self.model.setItem(k, 2, QtGui.QStandardItem(date))
+#             self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
+#             self.view.resizeColumnToContents(k)
+#             self.view.resizeRowToContents(k)
+#
+#             # Allow the application to stay responsive and show the progress
+#             QtGui.QApplication.processEvents()
 
     def populateFromDatabase(self, dbfile):
-        self.model.itemChanged.disconnect(self.on_itemChanged)
+        self.album = Album(self.fields)
+        self.model.changeDataSet(self.album)
         self.databaseFile = dbfile
         qry = 'SELECT directory, filename, date, hash, thumbnail, '+\
               'FilId FROM File'
@@ -115,7 +122,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             cur = con.cursor()
             cur2 = con.cursor()
             cur.execute(qry)
-            for k, row in enumerate(cur):
+            for row in cur:
                 fname = row[1]
                 date = row[2]
                 hsh = row[3]
@@ -133,36 +140,28 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Create the QPixmap from the byte array
                 pix = QtGui.QPixmap()
                 pix.loadFromData(fp.getvalue())
+                thumb = QtGui.QIcon(pix)
 
-                # Add the model items
-                imgItem = QtGui.QStandardItem()
-                imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
-                self.model.setItem(k, self.columnByName('Image'), imgItem)
-                self.model.setItem(k, self.columnByName('file name'),
-                                   QtGui.QStandardItem(fname))
-                self.model.setItem(k, self.columnByName('date'),
-                                   QtGui.QStandardItem(date))
-                self.model.setItem(k, self.columnByName('hash'),
-                                   QtGui.QStandardItem(str(hsh)))
-                self.model.setItem(k, self.columnByName('fileId'),
-                                   QtGui.QStandardItem(str(fileId)))
-                self.model.setItem(k, self.columnByName('location'),
-                                   QtGui.QStandardItem(location))
-                self.view.resizeColumnToContents(k)
-                self.view.resizeRowToContents(k)
+                values = ['', fname, date, str(hsh), location, fileId]
+                self.model.insertRows(self.model.rowCount(), 0,
+                                      Photo(self.fields, values, thumb))
 
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
-        self.model.itemChanged.connect(self.on_itemChanged)
 
-    def setWidthHeight(self):
+        self.setWidthHeight()
+
+    def setWidthHeight(self, size=None):
         """Set the width and height of the table columns/rows
 
         Width is set to the desired icon size, not actual size for consistency
         when images are filtered. Rows are always resized to contents.
         """
-        self.view.setColumnWidth(0, self.iconSize)
-        self.view.resizeRowsToContents()
+        size = size or self.iconSize
+        self.view.setColumnWidth(0, size)
+        self.verticalHeader.setDefaultSectionSize(size)
+        self.verticalHeader.resizeSections(self.verticalHeader.Fixed)
+        self.view.setIconSize(QtCore.QSize(size, size))
 
     def setFilter(self, pattern=None, column=None):
         """Set the table filter
@@ -187,14 +186,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         return cols.index(name.lower())
 
     @QtCore.pyqtSlot(int)
-    def setIconSize(self, size):
+    def on_sliderValueChanged(self, size):
         """Resize the image thumbnails. Slot for the slider
 
         Arguments:
-            size (int): The desired square size of the thumbnail in pixles
+            size (int): The desired square size of the thumbnail in pixels
         """
-        self.view.setIconSize(QtCore.QSize(size, size))
-        self.setWidthHeight()
+        self.setWidthHeight(size)
 
     @QtCore.pyqtSlot(QtCore.QPoint)
     def on_headerContext_requested(self, point):
@@ -212,7 +210,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.menuValues = QtGui.QMenu(self)
         self.signalMapper = QtCore.QSignalMapper(self)
 
-        values = [str(self.model.item(row, self.logicalIndex).text())
+        values = [str(self.model.data(self.model.index(row,
+                  self.logicalIndex)).toPyObject())
                   for row in range(self.model.rowCount())]
         valuesUnique = sorted(list(set(values)))
         if '' in valuesUnique:
@@ -295,13 +294,15 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.proxy.setFilterKeyColumn(index+1)
         self.setWidthHeight()
 
-    @QtCore.pyqtSlot(QtGui.QStandardItem)
-    def on_itemChanged(self, item):
-        col = self.columnByName('fileid')
-        row = item.row()
+    @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
+    def on_dataChanged(self, topLeft, bottomRight):
+        if topLeft != bottomRight:
+            raise ValueError('Not equipped to handle multiple rows/columns')
+        col = self.fields.index('FileId')
+        row = topLeft.row()
         fileId = self.model.data(self.model.index(row, col)).toInt()[0]
         # Get the new locations
-        new_locs = [k.strip() for k in re.split(';|,', str(item.text()))
+        new_locs = [k.strip() for k in re.split(';|,', str(topLeft.data().toPyObject()))
                     if k.strip() != '']
         with sqlite(self.databaseFile) as con:
             cur = con.cursor()
