@@ -112,7 +112,7 @@ class FieldObjectContainer(MutableSequence):
                 required = required or [False]*nfields
                 editable = editable or [True]*nfields
                 name_editable = name_editable or [True]*len(fieldobjs)
-                hidden = None or [False]*nfields
+                hidden = hidden or [False]*nfields
                 types = types or [str]*nfields
                 inputs = zip(fieldobjs, required, editor, editable,
                              name_editable, hidden, types)

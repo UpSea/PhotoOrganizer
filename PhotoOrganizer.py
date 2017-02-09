@@ -46,7 +46,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
         # Instantiate an empty dataset and model
-        self.album = Album()
+        self.album = Album(self.fields)
         self.model = AlbumModel(self.album)
 
         self.model.dataChanged.connect(self.on_dataChanged)
@@ -73,6 +73,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Set up combobox
         self.comboBox.addItems(self.columns[1:])
         self.comboBox.setCurrentIndex(1)
+
+        # Set view to hide columns
+        self.view.rehideColumns()
 
 #     def populate(self, directory, calc_hash=False):
 #         """Populate the table with images from directory

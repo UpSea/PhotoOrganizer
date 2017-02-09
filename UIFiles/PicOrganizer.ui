@@ -40,7 +40,7 @@
      </layout>
     </item>
     <item>
-     <widget class="QTableView" name="view"/>
+     <widget class="PhotoTable" name="view"/>
     </item>
    </layout>
   </widget>
@@ -68,6 +68,13 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PhotoTable</class>
+   <extends>QTableView</extends>
+   <header>photo_table</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
