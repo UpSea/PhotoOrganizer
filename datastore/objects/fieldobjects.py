@@ -84,25 +84,41 @@ class FieldObject(object):
 class FieldObjectContainer(MutableSequence):
     """ A container for field objects
 
+    If fields is given as a list of FieldObjects, all other inputs are assumed
+    to be defined within the FieldObjects already and are therefore ignored.
+
     Constructor Arguments:
         fieldobjs (list[str], list[FieldObj]): ([]) A list of field objects or
             field names
         types (list[type]):  (Optional) A type for each field. Default type is
             str
+        editable (list[bool]): (True) A list indicating whether each field is
+            editable or not
     """
 
-    def __init__(self, fieldobjs=None, types=None):
+    def __init__(self, fieldobjs=None, required=None, editor=None,
+                 editable=None, name_editable=None, hidden=None, types=None):
         if fieldobjs is None:
             self._fieldobjs = []
         else:
+            # Make sure all fields are of the same type
             all_objs = [isinstance(k, FieldObject)
                         for k in fieldobjs]
             all_str = [isinstance(k, str) for k in fieldobjs]
             if all(all_str):
-                types = types or [str]*len(fieldobjs)
-                self._fieldobjs = [FieldObject(k, typ=t) for k, t in
-                                   zip(fieldobjs, types)]
+                # Create field objects from string inputs
+                nfields = len(fieldobjs)
+                editor = editor or [None]*nfields
+                required = required or [False]*nfields
+                editable = editable or [True]*nfields
+                name_editable = name_editable or [True]*len(fieldobjs)
+                hidden = None or [False]*nfields
+                types = types or [str]*nfields
+                inputs = zip(fieldobjs, required, editor, editable,
+                             name_editable, hidden, types)
+                self._fieldobjs = [FieldObject(*kwargs) for kwargs in inputs]
             elif all(all_objs):
+                # Store the input list
                 self._fieldobjs = fieldobjs
             else:
                 raise TypeError('Input fields must all be either '

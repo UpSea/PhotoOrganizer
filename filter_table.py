@@ -17,18 +17,23 @@ import imagehash
 from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
 import re
-from datastore import AlbumModel, Album, Photo, FieldObjectContainer
+from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
+                       FieldObject)
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
     columns = ['Image', 'File Name', 'Date', 'Hash', 'Tags', 'FileId']
-    types = [bool, str, str, str, str, int]
-    editable = [True, False, False, False, True, False]
+    required = [True, True, True, True, False, True]
+    editor = [None, None, None, None,
+              FieldObject.LineEditEditor, None]
+    editable = [False, False, False, False, True, False]
+    name_editable=[False, False, False, False, True, False]
     hidden = [False, False, False, True, False, True]
-    # Need to implement editable and hidden inputs to FieldObjectContainer
-    fields = FieldObjectContainer(columns, types)
+    types = [str, str, str, str, str, int]
+    fields = FieldObjectContainer(columns, required, editor, editable,
+                                  name_editable, hidden, types)
 
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
