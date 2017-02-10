@@ -185,6 +185,25 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.dirty.emit()
 
 
+class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
+    """ A proxy model subclass for filtering on any column """
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        """ Re-implemented to apply the regular expression filter to all
+        columns. If any column has a match, the row is accepted.
+
+        Arguments:
+            sourceRow (int): The row in question
+            sourceParent (QModelIndex): The index of the row's parent.
+        """
+        sourceModel = self.sourceModel()
+        for c in range(sourceModel.columnCount()):
+            index = sourceModel.index(sourceRow, c, sourceParent)
+            if index.data().toString().contains(self.filterRegExp()):
+                return True
+        return False
+
+
 class deleteCmd(QtGui.QUndoCommand):
 
     description = "Delete Cells"

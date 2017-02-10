@@ -18,7 +18,7 @@ from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
 import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
-                       FieldObject, AlbumDelegate)
+                       FieldObject, AlbumDelegate, AlbumSortFilterModel)
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
@@ -50,7 +50,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.model = AlbumModel(self.album)
 
         self.model.dataChanged.connect(self.on_dataChanged)
-        self.proxy = QtGui.QSortFilterProxyModel(self)
+        self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
 
@@ -62,7 +62,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
-        self.comboBox.currentIndexChanged.connect(self.on_comboBox_currentIndexChanged)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -70,10 +69,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
 
         self.verticalHeader = self.view.verticalHeader()
-
-        # Set up combobox
-        self.comboBox.addItems(self.columns[1:])
-        self.comboBox.setCurrentIndex(1)
 
         # Set view to hide columns
         self.view.rehideColumns()
@@ -187,10 +182,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         if pattern is not None:
             self.lineEdit.setText(pattern)
 
-        # Set the column
-        if column is not None:
-            self.comboBox.setCurrentIndex(column-1)
-
     def columnByName(self, name):
         cols = [k.lower() for k in self.columns]
         return cols.index(name.lower())
@@ -290,18 +281,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                                 QtCore.QRegExp.RegExp)
 
         self.proxy.setFilterRegExp(search)
-        self.setWidthHeight()
-
-    @QtCore.pyqtSlot(int)
-    def on_comboBox_currentIndexChanged(self, index):
-        """Set the column to filter
-
-        Slot for the comboBox
-
-        Arguments:
-            index (int): The column to be indexed (minus one)
-        """
-        self.proxy.setFilterKeyColumn(index+1)
         self.setWidthHeight()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
