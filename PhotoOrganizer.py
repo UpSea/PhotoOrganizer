@@ -18,20 +18,20 @@ from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
 import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
-                       FieldObject)
+                       FieldObject, AlbumDelegate)
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    columns = ['Image', 'File Name', 'Date', 'Hash', 'Tags', 'FileId']
-    required = [True, True, True, True, False, True]
-    editor = [None, None, None, None,
-              FieldObject.LineEditEditor, None]
-    editable = [False, False, False, False, True, False]
-    name_editable=[False, False, False, False, True, False]
-    hidden = [False, False, False, True, False, True]
-    types = [str, str, str, str, str, int]
+    columns = ['Image', 'Tagged', 'File Name', 'Date', 'Hash', 'FileId', 'Tags']
+    required = [True, True, True, True, True, True, False]
+    editor = [None, FieldObject.CheckBoxEditor, None, None, None, None,
+              FieldObject.LineEditEditor]
+    editable = [False, True, False, False, False, False, True]
+    name_editable=[False, False, False, False, False, False, True]
+    hidden = [False, False, False, False, True, True, False]
+    types = [str, bool, str, str, str, int, str]
     fields = FieldObjectContainer(columns, required, editor, editable,
                                   name_editable, hidden, types)
 
@@ -58,6 +58,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
         self.view.setColumnHidden(self.columns.index('FileId'), True)
+        self.view.setItemDelegate(AlbumDelegate())
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
@@ -124,8 +125,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.album = Album(self.fields)
         self.model.changeDataSet(self.album)
         self.databaseFile = dbfile
-        qry = 'SELECT directory, filename, date, hash, thumbnail, '+\
-              'FilId FROM File'
+        qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
+              'tagged FROM File'
         with sqlite(dbfile) as con:
             cur = con.cursor()
             cur2 = con.cursor()
@@ -136,6 +137,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 hsh = row[3]
                 data = row[4]
                 fileId = row[5]
+                tagged = bool(row[6])
                 fp = BytesIO(data)
 
                 lqry = 'SELECT l.location FROM File as f '+\
@@ -150,7 +152,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 pix.loadFromData(fp.getvalue())
                 thumb = QtGui.QIcon(pix)
 
-                values = ['', fname, date, str(hsh), location, fileId]
+                values = ['', tagged, fname, date, str(hsh), fileId, location]
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
@@ -309,41 +311,48 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         col = self.fields.index('FileId')
         row = topLeft.row()
         fileId = self.model.data(self.model.index(row, col)).toInt()[0]
-        # Get the new locations
-        new_locs = [k.strip() for k in re.split(';|,', str(topLeft.data().toPyObject()))
-                    if k.strip() != '']
-        with sqlite(self.databaseFile) as con:
-            cur = con.cursor()
-            cur.execute('SELECT LocId, Location FROM Locations')
-            existing = {k[1].lower(): k[0] for k in cur.fetchall()}
-            for new_loc in new_locs:
-                if new_loc.strip() == '':
-                    continue
-                if new_loc.lower() not in existing:
-                    # INSERT new location
-                    q = 'INSERT OR IGNORE INTO Locations (Location) VALUES (?)'
-                    cur.execute(q, [new_loc])
-                    locId = cur.lastrowid
-                else:
-                    locId = existing[new_loc.lower()]
+        if topLeft.column() == self.fields.index('Tagged'):
+            value = topLeft.data().toBool()
+            q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
+            with sqlite(self.databaseFile) as con:
+                cur = con.cursor()
+                cur.execute(q, (1 if value else 0, fileId))
+        elif topLeft.column() == self.fields.index('Tags'):
+            # Get the new locations
+            new_locs = [k.strip() for k in re.split(';|,', str(topLeft.data().toPyObject()))
+                        if k.strip() != '']
+            with sqlite(self.databaseFile) as con:
+                cur = con.cursor()
+                cur.execute('SELECT LocId, Location FROM Locations')
+                existing = {k[1].lower(): k[0] for k in cur.fetchall()}
+                for new_loc in new_locs:
+                    if new_loc.strip() == '':
+                        continue
+                    if new_loc.lower() not in existing:
+                        # INSERT new location
+                        q = 'INSERT OR IGNORE INTO Locations (Location) VALUES (?)'
+                        cur.execute(q, [new_loc])
+                        locId = cur.lastrowid
+                    else:
+                        locId = existing[new_loc.lower()]
 
-                # Insert FileLoc mapping (ON CONFLICT IGNORE)
-                q = 'INSERT OR IGNORE INTO FileLoc (FilId, LocId) VALUES (?,?)'
-                cur.execute(q, [fileId, locId])
+                    # Insert FileLoc mapping (ON CONFLICT IGNORE)
+                    q = 'INSERT OR IGNORE INTO FileLoc (FilId, LocId) VALUES (?,?)'
+                    cur.execute(q, [fileId, locId])
 
-            # Remove deleted locations
-            loc_literals = ['?'] * len(new_locs)
-            params = ','.join(loc_literals)
-            q = "DELETE From FileLoc WHERE FilId == ? AND "+\
-                "(SELECT Location FROM Locations as l WHERE "+\
-                "l.LocId == FileLoc.LocId) NOT IN ({})".format(params)
-            cur.execute(q, [fileId] + new_locs)
+                # Remove deleted locations
+                loc_literals = ['?'] * len(new_locs)
+                params = ','.join(loc_literals)
+                q = "DELETE From FileLoc WHERE FilId == ? AND "+\
+                    "(SELECT Location FROM Locations as l WHERE "+\
+                    "l.LocId == FileLoc.LocId) NOT IN ({})".format(params)
+                cur.execute(q, [fileId] + new_locs)
 
-            # Remove them unused tags
-            q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
-                '(SELECT LocId FROM FileLoc)'
-            cur.execute(q)
-        self.proxy.invalidate()
+                # Remove them unused tags
+                q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
+                    '(SELECT LocId FROM FileLoc)'
+                cur.execute(q)
+            self.proxy.invalidate()
 
     @property
     def iconSize(self):

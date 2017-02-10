@@ -1,5 +1,7 @@
+DROP TABLE IF EXISTS FileLoc;
 DROP TABLE IF EXISTS File;
 CREATE TABLE File (FilId INTEGER PRIMARY KEY AUTOINCREMENT,
+                   tagged INTEGER,
                    filename TEXT,
                    directory TEXT,
                    date TEXT,
@@ -8,10 +10,9 @@ CREATE TABLE File (FilId INTEGER PRIMARY KEY AUTOINCREMENT,
 
 DROP TABLE IF EXISTS Locations;
 CREATE TABLE Locations (LocId INTEGER PRIMARY KEY AUTOINCREMENT,
-                       Location Text,
-                       UNIQUE (Location COLLATE NOCASE));
+                        Location Text,
+                        UNIQUE (Location COLLATE NOCASE));
 
-DROP TABLE IF EXISTS FileLoc;
 CREATE TABLE FileLoc(FilId INTEGER,
                      LocId INTEGER,
                      FOREIGN KEY(FilId) REFERENCES File(FilId),
