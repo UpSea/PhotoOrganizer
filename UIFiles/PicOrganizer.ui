@@ -55,6 +55,7 @@
      <string>File</string>
     </property>
     <addaction name="actionOpen_Database"/>
+    <addaction name="actionImportFolder"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
@@ -62,6 +63,11 @@
   <action name="actionOpen_Database">
    <property name="text">
     <string>Open Database</string>
+   </property>
+  </action>
+  <action name="actionImportFolder">
+   <property name="text">
+    <string>Import Folder</string>
    </property>
   </action>
  </widget>

@@ -32,7 +32,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
               FieldObject.LineEditEditor, None]
     editable = [False, True, False, False, False, False, True, False]
     name_editable=[False, False, False, False, False, False, True, False]
-    hidden = [False, False, False, False, True, True, False, True]
+    hidden = [False, False, False, False, True, True, False, False]
     types = [str, bool, str, str, str, int, str, str]
     fields = FieldObjectContainer(columns, required, editor, editable,
                                   name_editable, hidden, types)
@@ -66,6 +66,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
+        self.actionImportFolder.triggered.connect(self.on_importFolder)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -80,48 +81,50 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Create the image viewer window
         self.imageViewer = ImageViewer()
 
-#     def populate(self, directory, calc_hash=False):
-#         """Populate the table with images from directory
-#
-#         Arguments:
-#         directory (str): The directory containing the desired image files
-#         """
-#         # Get the list of images with valid extensions
-#         images = []
-#         ext = [fmt.data().decode('utf-8')
-#                for fmt in QtGui.QImageReader().supportedImageFormats()]
-#         for extension in ext:
-#             pattern = os.path.join(directory, '*.%s' % extension)
-#             images.extend(glob(pattern))
-#
-#         # Loop over all images and add to the table
-#         for k, path in enumerate(images[:4]):
-#             # Read the scaled image into a byte array
-#             im = Image.open(path)
-#             exif = im._getexif()
-#             hsh = imagehash.average_hash(im) if calc_hash else ''
-#             date = exif[36867] if exif else "Unknown"
-#             im.thumbnail((400, 400))
-#             fp = BytesIO()
-#             im.save(fp, 'png')
-#
-#             # Create the QPixmap from the byte array
-#             pix = QtGui.QPixmap()
-#             pix.loadFromData(fp.getvalue())
-#
-#             # Add the model items
-#             imgItem = QtGui.QStandardItem()
-#             imgItem.setData(QtGui.QIcon(pix), QtCore.Qt.DecorationRole)
-#             self.model.setItem(k, 0, imgItem)
-#             fname = os.path.split(path)[1]
-#             self.model.setItem(k, 1, QtGui.QStandardItem(fname))
-#             self.model.setItem(k, 2, QtGui.QStandardItem(date))
-#             self.model.setItem(k, 3, QtGui.QStandardItem(str(hsh)))
-#             self.view.resizeColumnToContents(k)
-#             self.view.resizeRowToContents(k)
-#
-#             # Allow the application to stay responsive and show the progress
-#             QtGui.QApplication.processEvents()
+    def importFolder(self, directory, dbfile):
+        """Populate the table with images from directory
+
+        Arguments:
+        directory (str): The directory containing the desired image files
+        dbfile (str):    The path to the database file to be populated
+        """
+        # Get the list of images with valid extensions
+        images = []
+        for extension in QtGui.QImageReader().supportedImageFormats():
+            pattern = os.path.join(directory, '*.%s' % str(extension))
+            images.extend(glob(pattern))
+
+        iqry = 'INSERT INTO File (filename, directory, date, hash, ' + \
+               'thumbnail) VALUES (?,?,?,?,?)'
+        with sqlite3.connect(dbfile) as con:
+            con.text_factory = str
+            con.execute('PRAGMA foreign_keys = 1')
+            cur = con.cursor()
+            # Loop over all images and add to the table
+            for path in images:
+                # Read the scaled image into a byte array
+                im = Image.open(path)
+                exif = im._getexif()
+                hsh = imagehash.average_hash(im)
+                date = exif[36867] if exif else "Unknown"
+                sz = 400
+                im.thumbnail((sz, sz))
+                fp = BytesIO()
+                im.save(fp, 'png')
+
+                # Add the model items
+                fname = os.path.split(path)[1]
+                cur.execute(iqry, [fname, directory, date, str(hsh),
+                                   sqlite3.Binary(fp.getvalue())])
+
+                fileId = cur.lastrowid
+                pix = QtGui.QPixmap()
+                pix.loadFromData(fp.getvalue())
+                thumb = QtGui.QIcon(pix)
+                values = ['', False, fname, date, str(hsh), fileId, '',
+                          directory]
+                self.model.insertRows(self.model.rowCount(), 0,
+                                      Photo(self.fields, values, thumb))
 
     def populateFromDatabase(self, dbfile):
         self.album = Album(self.fields)
@@ -370,6 +373,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             self.imageViewer.setWindowState(state)
             # Bring it to the front
             self.imageViewer.raise_()
+
+    @QtCore.pyqtSlot()
+    def on_importFolder(self):
+        folder = QtGui.QFileDialog.getExistingDirectory(self, "Import Folder",
+                                                        QtCore.QDir.currentPath())
+        if folder:
+            self.importFolder(str(folder), self.databaseFile)
 
     @property
     def iconSize(self):
