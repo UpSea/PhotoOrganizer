@@ -61,3 +61,12 @@ class WarningDialog(QtGui.QDialog):
     def setDetailedText(self, text):
         self.editDetailedText.show()
         self.editDetailedText.setPlainText(text)
+
+
+def warning_box(msg, parent=None):
+    """Raise a modal warning box"""
+    message_box = QtGui.QMessageBox(parent)
+    message_box.setWindowTitle('Warning')
+    message_box.setText(msg)
+    message_box.setIcon(QtGui.QMessageBox.Warning)
+    message_box.exec_()

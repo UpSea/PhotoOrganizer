@@ -9,6 +9,7 @@ and
 http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
+from shared import resource_path
 import os.path
 from glob import glob
 from PIL import Image
@@ -20,7 +21,7 @@ import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
-from Dialogs import WarningDialog
+from Dialogs import WarningDialog, warning_box
 from create_database import create_database
 
 
@@ -52,6 +53,12 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
+        # Add icons
+        newicon = QtGui.QIcon(resource_path(r'icons\New.ico'))
+        self.actionNewDatabase.setIcon(newicon)
+        openicon = QtGui.QIcon(resource_path(r'icons\Open.ico'))
+        self.actionOpenDatabase.setIcon(openicon)
+
         # Instantiate an empty dataset and model
         self.album = Album(self.fields)
         self.model = AlbumModel(self.album)
@@ -72,6 +79,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
+        self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -150,14 +158,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
 
-            self.statusbar.showMessage('Done')
-            QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
+        self.statusbar.showMessage('Done')
 
         if changeDir:
             dlg = WarningDialog('Matching Files Found', self)
-            dlg.setText('The following files already exist in the database '+\
-                        'but are located in a different folder.\n'+\
-                        'Not yet equipped to handle this. These files were '+\
+            dlg.setText('The following files already exist in the database '+
+                        'but are located in a different folder.\n'+
+                        'Not yet equipped to handle this. These files were '+
                         'were ignored')
             detail = '\n'.join(changeDir)
             dlg.setDetailedText(detail)
@@ -165,8 +172,18 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             dlg.exec_()
 
         self.setWidthHeight()
+        QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
 
-    def populateFromDatabase(self, dbfile):
+    def openDatabase(self, dbfile):
+        """ Open a database file and populate the album table
+
+        Arguments:
+            dbfile (str): The path to the database file
+        """
+        if not os.path.exists(dbfile):
+            msg = 'Database File Not Found'
+            warning_box(msg, self)
+            return
         # Make sure table is visible
         if self.view.isHidden():
             self.mainWidget.setHidden(False)
@@ -177,13 +194,18 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.album = Album(self.fields)
         self.model.changeDataSet(self.album)
         self.databaseFile = dbfile
+        cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged FROM File'
         with sqlite(dbfile) as con:
             cur = con.cursor()
             cur2 = con.cursor()
+            cur.execute(cnt)
+            count = cur.fetchone()[0]
             cur.execute(qry)
+            k = 0
             for row in cur:
+                k += 1
                 directory = row[0]
                 fname = row[1]
                 date = row[2]
@@ -210,10 +232,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
+                msg = 'Importing Photo %d of %d' % (k, count)
+                self.statusbar.showMessage(msg)
+
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
 
+        self.statusbar.showMessage('Done')
         self.setWidthHeight()
+        QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
+        self.actionImportFolder.setEnabled(True)
 
     def setWidthHeight(self, size=None):
         """Set the width and height of the table columns/rows
@@ -344,6 +372,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
     def on_dataChanged(self, topLeft, bottomRight):
+        """ Update the database when user changes data
+
+        Slot for model.dataChanged
+        """
         if topLeft != bottomRight:
             raise ValueError('Not equipped to handle multiple rows/columns')
         col = self.fields.index('FileId')
@@ -423,6 +455,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
     @QtCore.pyqtSlot()
     def on_importFolder(self):
+        """ Import photos from a folder
+
+        Slot for actionImportFolder
+        """
         folder = QtGui.QFileDialog.getExistingDirectory(self, "Import Folder",
                                                         QtCore.QDir.currentPath())
         if folder:
@@ -431,18 +467,43 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 self.labelNoPhotos.setHidden(True)
             self.importFolder(str(folder), self.databaseFile)
 
+    @QtCore.pyqtSlot()
     def on_newDatabase(self):
+        """ Create a new empty database
+
+        Slot for actionNewDatabase
+        """
+        # Prompt the user
         filt = "Photo Database (*.pdb)"
         filename = QtGui.QFileDialog.getSaveFileName(self, 'New Database File',
                                                      filter=filt)
         if not filename:
             return  # Canceled
 
+        # Create the database and show the main widget
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         create_database(dbfile)
         self.databaseFile = dbfile
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
+        self.actionImportFolder.setEnabled(True)
+
+    @QtCore.pyqtSlot()
+    def on_openDatabase(self):
+        """ Open an existing database
+
+        Slot for actionOpenDatabase
+        """
+        # Prompt the user
+        filt = "Photo Database (*.pdb);; All Files (*.*)"
+        filename = QtGui.QFileDialog.getOpenFileName(self, 'Open Database File',
+                                                     filter=filt)
+        if not filename:
+            return  # Canceled
+
+        # Create the database and show the main widget
+        dbfile = str(QtCore.QDir.toNativeSeparators(filename))
+        self.openDatabase(dbfile)
 
     @property
     def iconSize(self):
@@ -466,6 +527,6 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-#     main.populateFromDatabase('TestDb2.db')
+    main.openDatabase('TestDb2.pdb')
 
     sys.exit(app.exec_())

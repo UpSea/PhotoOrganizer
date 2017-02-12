@@ -96,16 +96,22 @@ This may take a while if there are many photos. Watch the status bar below for p
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionOpenDatabase">
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="text">
     <string>Open Database</string>
    </property>
    <property name="visible">
-    <bool>false</bool>
+    <bool>true</bool>
+   </property>
+   <property name="iconVisibleInMenu">
+    <bool>true</bool>
    </property>
   </action>
   <action name="actionImportFolder">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Import Folder</string>
    </property>
@@ -113,6 +119,9 @@ This may take a while if there are many photos. Watch the status bar below for p
   <action name="actionNewDatabase">
    <property name="text">
     <string>New Database</string>
+   </property>
+   <property name="iconVisibleInMenu">
+    <bool>true</bool>
    </property>
   </action>
  </widget>
