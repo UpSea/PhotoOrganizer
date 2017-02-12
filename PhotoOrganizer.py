@@ -20,6 +20,7 @@ import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
+from Dialogs import WarningDialog
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
@@ -67,6 +68,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
+        self.actionNewDatabase.triggered.connect(self.on_newDatabase)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -96,16 +98,30 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         iqry = 'INSERT INTO File (filename, directory, date, hash, ' + \
                'thumbnail) VALUES (?,?,?,?,?)'
+        exHash = [(k['File Name'], k['Hash']) for k in self.album]
+        exFiles = [os.path.join(k['Directory'], k['File Name'])
+                   for k in self.album]
         with sqlite3.connect(dbfile) as con:
             con.text_factory = str
             con.execute('PRAGMA foreign_keys = 1')
             cur = con.cursor()
             # Loop over all images and add to the table
+            changeDir = []
             for path in images:
+                # See if this file is already in the database
+                if path in exFiles:
+                    continue
+
+                # Split off the filename
+                fname = os.path.split(path)[1]
+
                 # Read the scaled image into a byte array
                 im = Image.open(path)
                 exif = im._getexif()
                 hsh = imagehash.average_hash(im)
+                if (fname, str(hsh)) in exHash:
+                    changeDir.append(path)
+                    continue
                 date = exif[36867] if exif else "Unknown"
                 sz = 400
                 im.thumbnail((sz, sz))
@@ -113,7 +129,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 im.save(fp, 'png')
 
                 # Add the model items
-                fname = os.path.split(path)[1]
                 cur.execute(iqry, [fname, directory, date, str(hsh),
                                    sqlite3.Binary(fp.getvalue())])
 
@@ -125,6 +140,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                           directory]
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
+        if changeDir:
+            dlg = WarningDialog('Matching Files Found', self)
+            dlg.setText('The following files already exist in the database '+\
+                        'but are located in a different folder.\n'+\
+                        'Not yet equipped to handle this. These files were '+\
+                        'were ignored')
+            detail = '\n'.join(changeDir)
+            dlg.setDetailedText(detail)
+            dlg.addButton(QtGui.QDialogButtonBox.Ok)
+            dlg.exec_()
 
     def populateFromDatabase(self, dbfile):
         self.album = Album(self.fields)

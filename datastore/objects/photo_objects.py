@@ -35,8 +35,24 @@ class Photo(dict):
 
         super(Photo, self).__init__(zip(fields, values))
 
+    def __getitem__(self, key):
+        if isinstance(key, FieldObject):
+            return super(Photo, self).__getitem__(key)
+        else:
+            return super(Photo, self).__getitem__(self.field_by_name(key))
+
     def removeField(self, field):
         del self[field]
+
+    def field_by_name(self, name):
+        field_names = [k.name for k in self.keys()]
+        if name not in field_names:
+            raise ValueError('%s is not a valid field name' % name)
+        dex = [i for i, x in enumerate(field_names) if x == name]
+        if len(dex) != 1:
+            raise ValueError('%s is the name of more than one field' % name)
+
+        return self.keys()[dex[0]]
 
     def __repr__(self):
         return '<Photo: %s>' % dict.__repr__(self)
@@ -136,6 +152,9 @@ if __name__ == "__main__":
             self.photo.removeField(self.field)
             self.assertEqual(len(self.photo.keys()), 2)
             self.assertEqual(self.photo[self.field2], 'meta2')
+
+        def test_getItem(self):
+            self.assertEqual(self.photo['Field1'], 'meta1')
 
     class AlbumTest(unittest.TestCase):
 
