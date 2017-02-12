@@ -1,4 +1,22 @@
 from PyQt4 import QtCore, QtGui
+from UIFiles import Ui_BatchTag as batchTag_form
+
+
+class BatchTag(QtGui.QDialog, batchTag_form):
+    """ A dialog box for adding tags to a batch of photos """
+
+    def __init__(self, parent=None):
+        super(BatchTag, self).__init__(parent)
+        self.setupUi(self)
+        self.setWindowTitle('Batch Tag')
+
+        # Remove help button from title bar
+        self.setWindowFlags((QtCore.Qt.Dialog |
+                             QtCore.Qt.CustomizeWindowHint) |
+                            QtCore.Qt.WindowTitleHint &~
+                            QtCore.Qt.WindowCloseButtonHint)
+
+        self.label.setText('Add tags separated by , or ;')
 
 
 class WarningDialog(QtGui.QDialog):

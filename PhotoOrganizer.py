@@ -9,6 +9,7 @@ and
 http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
+from UIFiles import Ui_PicOrganizer as uiclassf
 from shared import resource_path, __release__
 import platform
 import os.path
@@ -16,13 +17,12 @@ from glob import glob
 from PIL import Image
 from io import BytesIO
 import imagehash
-from UIFiles import Ui_PicOrganizer as uiclassf
 import sqlite3
 import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
-from Dialogs import WarningDialog, warning_box
+from Dialogs import WarningDialog, warning_box, BatchTag
 from create_database import create_database
 
 
@@ -81,6 +81,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
+        self.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.actionAbout.triggered.connect(self.on_helpAbout)
 
         # Set the horizontal header for a context menu
@@ -222,7 +223,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                        'JOIN Locations as l ON fl.LocId == l.LocId '+\
                        'WHERE f.FilId == ?'
                 cur2.execute(lqry, [fileId])
-                location = ', '.join([l[0] for l in cur2.fetchall()])
+                location = '; '.join([l[0] for l in cur2.fetchall()])
 
                 # Create the QPixmap from the byte array
                 pix = QtGui.QPixmap()
@@ -271,9 +272,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         if pattern is not None:
             self.lineEdit.setText(pattern)
 
-    def columnByName(self, name):
-        cols = [k.lower() for k in self.columns]
-        return cols.index(name.lower())
+    #####################
+    #       SLOTS       #
+    #####################
 
     @QtCore.pyqtSlot(int)
     def on_sliderValueChanged(self, size):
@@ -507,6 +508,36 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         self.openDatabase(dbfile)
 
+    @QtCore.pyqtSlot()
+    def on_actionBatchTag(self):
+        """ Add tags to a batch of files
+
+        Slot for actionBatchTag
+        """
+        # Show the dialog and get the new tags
+        selection = self.view.selectedIndexes()
+        source = [self.proxy.mapToSource(i) for i in selection]
+        selectedRows = list(set([k.row() for k in source]))
+        dlg = BatchTag(self)
+        st = dlg.exec_()
+        if st == dlg.Rejected:
+            return
+
+        # Get a list of new tags
+        newTagStr = str(dlg.lineEdit.text())
+        newTags = [k.strip() for k in re.split(';|,', newTagStr)
+                   if k.strip() != '']
+
+        # Apply the new tags, keeping the old
+        for row in selectedRows:
+            index = self.model.index(row, self.fields.index('Tags'))
+            oldTagStr = str(index.data().toPyObject())
+            oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
+                       if k.strip() != '']
+            replace = oldTags + [k for k in newTags if k not in oldTags]
+            self.model.setData(index, QtCore.QVariant('; '.join(replace)))
+
+    @QtCore.pyqtSlot()
     def on_helpAbout(self):
         """ Create the program about menu and display it """
         mess_str = ("<b>Photo Organizer</b> v{}"
@@ -516,6 +547,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                                       QtCore.QT_VERSION_STR,
                                       QtCore.PYQT_VERSION_STR)
         QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
+
+    #####################
+    #     PROPERTIES    #
+    #####################
 
     @property
     def iconSize(self):
@@ -539,6 +574,6 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-    main.openDatabase('TestDb2.pdb')
+    main.openDatabase('Small.pdb')
 
     sys.exit(app.exec_())

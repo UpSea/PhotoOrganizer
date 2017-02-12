@@ -91,6 +91,12 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionOpenDatabase"/>
     <addaction name="actionImportFolder"/>
    </widget>
+   <widget class="QMenu" name="menuOrganize">
+    <property name="title">
+     <string>Organize</string>
+    </property>
+    <addaction name="actionBatchTag"/>
+   </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
@@ -98,6 +104,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuOrganize"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
