@@ -2,6 +2,9 @@ import os
 import sys
 
 
+__release__ = 0.1
+
+
 def resource_path(relative):
     """ Returns the path to the resource, whether running python or frozen
     executable """

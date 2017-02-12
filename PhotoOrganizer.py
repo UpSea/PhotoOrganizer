@@ -9,7 +9,8 @@ and
 http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
-from shared import resource_path
+from shared import resource_path, __release__
+import platform
 import os.path
 from glob import glob
 from PIL import Image
@@ -80,6 +81,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
+        self.actionAbout.triggered.connect(self.on_helpAbout)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -504,6 +506,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Create the database and show the main widget
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         self.openDatabase(dbfile)
+
+    def on_helpAbout(self):
+        """ Create the program about menu and display it """
+        mess_str = ("<b>Photo Organizer</b> v{}"
+                    "<p>Developed by Luke McNinch (lcmcinch@yahoo.com)"
+                    "<p>Python {} - Qt {} - PyQt {}")
+        mess_format = mess_str.format(__release__, platform.python_version(),
+                                      QtCore.QT_VERSION_STR,
+                                      QtCore.PYQT_VERSION_STR)
+        QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
 
     @property
     def iconSize(self):
