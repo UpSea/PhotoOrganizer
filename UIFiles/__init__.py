@@ -46,8 +46,8 @@ class ClassParser(ast.NodeVisitor):
 def modname(ui_dir, ui_file):
     """ This is a rename mapping function for compileUiDir """
     out_dir = ui_dir
-    out_file = ui_file.replace('.py', '_Ui.py')
-#     out_file = '{0}'.format(ui_file)
+#     out_file = ui_file.replace('.py', '_Ui.py')
+    out_file = 'Ui_%s' % ui_file
     out_path = os.path.join(out_dir, out_file)
     file_names.append(out_path)
     return (out_dir, out_file)

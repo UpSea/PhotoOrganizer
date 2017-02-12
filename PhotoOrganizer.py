@@ -19,25 +19,28 @@ import sqlite3
 import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
+from PhotoViewer import ImageViewer
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    columns = ['Image', 'Tagged', 'File Name', 'Date', 'Hash', 'FileId', 'Tags']
-    required = [True, True, True, True, True, True, False]
+    columns = ['Image', 'Tagged', 'File Name', 'Date', 'Hash', 'FileId',
+               'Tags', 'Directory']
+    required = [True, True, True, True, True, True, False, True]
     editor = [None, FieldObject.CheckBoxEditor, None, None, None, None,
-              FieldObject.LineEditEditor]
-    editable = [False, True, False, False, False, False, True]
-    name_editable=[False, False, False, False, False, False, True]
-    hidden = [False, False, False, False, True, True, False]
-    types = [str, bool, str, str, str, int, str]
+              FieldObject.LineEditEditor, None]
+    editable = [False, True, False, False, False, False, True, False]
+    name_editable=[False, False, False, False, False, False, True, False]
+    hidden = [False, False, False, False, True, True, False, True]
+    types = [str, bool, str, str, str, int, str, str]
     fields = FieldObjectContainer(columns, required, editor, editable,
                                   name_editable, hidden, types)
 
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
         self.setupUi(self)
+        self.setWindowTitle('Photo Organizer')
         self.databaseFile = None
 
         # Set up the widgets
@@ -62,6 +65,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
+        self.view.doubleClicked.connect(self.on_doubleClick)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -72,6 +76,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Set view to hide columns
         self.view.rehideColumns()
+
+        # Create the image viewer window
+        self.imageViewer = ImageViewer()
 
 #     def populate(self, directory, calc_hash=False):
 #         """Populate the table with images from directory
@@ -127,6 +134,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             cur2 = con.cursor()
             cur.execute(qry)
             for row in cur:
+                directory = row[0]
                 fname = row[1]
                 date = row[2]
                 hsh = row[3]
@@ -147,7 +155,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 pix.loadFromData(fp.getvalue())
                 thumb = QtGui.QIcon(pix)
 
-                values = ['', tagged, fname, date, str(hsh), fileId, location]
+                values = ['', tagged, fname, date, str(hsh), fileId, location,
+                          directory]
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
@@ -332,6 +341,35 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                     '(SELECT LocId FROM FileLoc)'
                 cur.execute(q)
             self.proxy.invalidate()
+
+    @QtCore.pyqtSlot(QtCore.QModelIndex)
+    def on_doubleClick(self, index):
+        """ Show the image viewer
+
+        Slot for doubleclick on table view
+
+        Arguments:
+            index (QModelIndex)
+        """
+        # Get the file path
+        if index.column() != 0:
+            return
+        mapped = self.proxy.mapToSource(index)
+        fullfile = os.path.join(self.album[mapped.row(), 'Directory'],
+                                self.album[mapped.row(), 'File Name'])
+        self.imageViewer.setImage(fullfile)
+
+        # Show the window
+        if self.imageViewer.isHidden():
+            self.imageViewer.show()
+        else:
+            # Restore it if minimized
+            state = (self.imageViewer.windowState() &~
+                     QtCore.Qt.WindowMinimized |
+                     QtCore.Qt.WindowActive)
+            self.imageViewer.setWindowState(state)
+            # Bring it to the front
+            self.imageViewer.raise_()
 
     @property
     def iconSize(self):
