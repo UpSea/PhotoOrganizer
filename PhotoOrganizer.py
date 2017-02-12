@@ -21,6 +21,7 @@ from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
 from Dialogs import WarningDialog
+from create_database import create_database
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
@@ -43,6 +44,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
         self.databaseFile = None
+        self.mainWidget.setHidden(True)
+        self.view.setHidden(True)
 
         # Set up the widgets
         self.slider.setRange(20, 400)
@@ -68,6 +71,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
+        self.actionNewDatabase.triggered.connect(self.on_newDatabase)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -106,7 +110,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             cur = con.cursor()
             # Loop over all images and add to the table
             changeDir = []
-            for path in images:
+            for k, path in enumerate(images):
                 # See if this file is already in the database
                 if path in exFiles:
                     continue
@@ -139,6 +143,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                           directory]
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
+
+                msg = 'Importing Photo %d of %d' % (k, len(images))
+                self.statusbar.showMessage(msg)
+
+                # Allow the application to stay responsive and show the progress
+                QtGui.QApplication.processEvents()
+
+            self.statusbar.showMessage('Done')
+            QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
+
         if changeDir:
             dlg = WarningDialog('Matching Files Found', self)
             dlg.setText('The following files already exist in the database '+\
@@ -150,7 +164,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             dlg.addButton(QtGui.QDialogButtonBox.Ok)
             dlg.exec_()
 
+        self.setWidthHeight()
+
     def populateFromDatabase(self, dbfile):
+        # Make sure table is visible
+        if self.view.isHidden():
+            self.mainWidget.setHidden(False)
+            self.view.setHidden(False)
+            self.labelNoDatabase.setHidden(True)
+            self.labelNoPhotos.setHidden(True)
+
         self.album = Album(self.fields)
         self.model.changeDataSet(self.album)
         self.databaseFile = dbfile
@@ -403,7 +426,23 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         folder = QtGui.QFileDialog.getExistingDirectory(self, "Import Folder",
                                                         QtCore.QDir.currentPath())
         if folder:
+            if self.view.isHidden():
+                self.view.setHidden(False)
+                self.labelNoPhotos.setHidden(True)
             self.importFolder(str(folder), self.databaseFile)
+
+    def on_newDatabase(self):
+        filt = "Photo Database (*.pdb)"
+        filename = QtGui.QFileDialog.getSaveFileName(self, 'New Database File',
+                                                     filter=filt)
+        if not filename:
+            return  # Canceled
+
+        dbfile = str(QtCore.QDir.toNativeSeparators(filename))
+        create_database(dbfile)
+        self.databaseFile = dbfile
+        self.labelNoDatabase.setHidden(True)
+        self.mainWidget.setHidden(False)
 
     @property
     def iconSize(self):
@@ -427,6 +466,6 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-    main.populateFromDatabase('TestDb2.db')
+#     main.populateFromDatabase('TestDb2.db')
 
     sys.exit(app.exec_())

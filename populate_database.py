@@ -49,6 +49,8 @@ def process_folder(directory, dbfile, calc_hash=False):
 
 
 if __name__ == "__main__":
-    from create_database import dbfile
+    from create_database import create_database
+    dbfile = 'TestDb2.db'
+    create_database(dbfile)
     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
-    print process_folder(directory, dbfile, True)
+    process_folder(directory, dbfile, True)

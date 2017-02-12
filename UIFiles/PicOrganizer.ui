@@ -14,30 +14,63 @@
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout">
+   <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout">
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>Regex Filter</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLineEdit" name="lineEdit"/>
-      </item>
-      <item>
-       <widget class="QSlider" name="slider">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QWidget" name="mainWidget" native="true">
+      <layout class="QVBoxLayout" name="verticalLayout">
+       <property name="margin">
+        <number>0</number>
+       </property>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Regex Filter</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="lineEdit"/>
+         </item>
+         <item>
+          <widget class="QSlider" name="slider">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="PhotoTable" name="view"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="labelNoPhotos">
+         <property name="text">
+          <string>Go to File &gt; Import Folder to import Photos from a folder into the database.
+This may take a while if there are many photos. Watch the status bar below for progress.</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item>
-     <widget class="PhotoTable" name="view"/>
+     <widget class="QLabel" name="labelNoDatabase">
+      <property name="text">
+       <string>Go to File &gt; New Database to start.</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -54,20 +87,32 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionOpen_Database"/>
+    <addaction name="actionNewDatabase"/>
+    <addaction name="actionOpenDatabase"/>
     <addaction name="actionImportFolder"/>
    </widget>
    <addaction name="menuFile"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionOpen_Database">
+  <action name="actionOpenDatabase">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>Open Database</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="actionImportFolder">
    <property name="text">
     <string>Import Folder</string>
+   </property>
+  </action>
+  <action name="actionNewDatabase">
+   <property name="text">
+    <string>New Database</string>
    </property>
   </action>
  </widget>
