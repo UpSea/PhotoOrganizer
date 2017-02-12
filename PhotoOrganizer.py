@@ -68,7 +68,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
-        self.actionNewDatabase.triggered.connect(self.on_newDatabase)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
