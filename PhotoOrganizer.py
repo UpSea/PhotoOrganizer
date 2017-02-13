@@ -10,7 +10,7 @@ http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
-from shared import resource_path, __release__
+from shared import resource_path, __release__, organization, application
 import platform
 import os.path
 from glob import glob
@@ -48,6 +48,11 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.databaseFile = None
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
+
+        # Setup application organization and application name
+        app = QtGui.QApplication.instance()
+        app.setOrganizationName(organization)
+        app.setApplicationName(application)
 
         # Set up the widgets
         self.slider.setRange(20, 400)
@@ -96,6 +101,35 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Create the image viewer window
         self.imageViewer = ImageViewer()
+
+    def showEvent(self, event):
+        """ Re-implemented to restore window geometry when shown """
+        settings = QtCore.QSettings()
+        self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
+
+    def closeEvent(self, event):
+        """ Re-implemented to save settings """
+
+        # Save general App settings
+        settings = QtCore.QSettings()
+        settings.clear()
+        settings.setValue("MainWindow/Geometry", QtCore.QVariant(
+                          self.saveGeometry()))
+        settings.setValue("MainWindow/State", QtCore.QVariant(
+                          self.saveState()))
+
+        # Save database-specific settings
+        self.saveAppData()
+
+    def saveAppData(self):
+        """ Save database-specific settings """
+        if self.databaseFile is None:
+            return
+        with sqlite(self.databaseFile) as con:
+            cur = con.cursor()
+            q = ('UPDATE AppData SET AppFileVersion=?, AlbumTableState=?')
+            headerState = sqlite3.Binary(self.horizontalHeader.saveState())
+            cur.execute(q, (__release__, headerState))
 
     def importFolder(self, directory, dbfile):
         """Populate the table with images from directory
@@ -241,10 +275,19 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
 
+            # Restore the table geometry
+            q_geo = 'SELECT AlbumTableState from AppData'
+            cur.execute(q_geo)
+            geometry = cur.fetchone()
+            if geometry:
+                hh = self.horizontalHeader
+                hh.restoreState(QtCore.QByteArray(str(geometry[0])))
+
         self.statusbar.showMessage('Done')
         self.setWidthHeight()
         QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
         self.actionImportFolder.setEnabled(True)
+        self.saveAppData()
 
     def setWidthHeight(self, size=None):
         """Set the width and height of the table columns/rows
@@ -574,6 +617,7 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-    main.openDatabase('Small.pdb')
+#     main.openDatabase('Small2.pdb')
+#     main.on_newDatabase()
 
     sys.exit(app.exec_())

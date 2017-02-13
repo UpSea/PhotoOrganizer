@@ -2,7 +2,10 @@ import os
 import sys
 
 
-__release__ = 0.1
+__release__ = '0.0.2'
+
+organization = "McNinch Custom"
+application = "PhotoOrganizer"
 
 
 def resource_path(relative):

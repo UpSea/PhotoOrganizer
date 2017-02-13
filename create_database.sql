@@ -25,5 +25,6 @@ CREATE TABLE People (PeoId INTEGER PRIMARY KEY AUTOINCREMENT,
                      Person TEXT);
 
 DROP TABLE IF EXISTS AppData;
-CREATE TABLE AppData (AppFileVersion TEXT);
-INSERT INTO AppData VALUES ('0.0.1');
+CREATE TABLE AppData (AppFileVersion TEXT,
+                      AlbumTableState BLOB);
+INSERT INTO AppData VALUES (NULL, NULL);
