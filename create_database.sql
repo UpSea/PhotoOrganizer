@@ -6,7 +6,8 @@ CREATE TABLE File (FilId INTEGER PRIMARY KEY AUTOINCREMENT,
                    directory TEXT,
                    date TEXT,
                    hash TEXT,
-                   thumbnail BLOB);
+                   thumbnail BLOB,
+                   importTimeUTC DATETIME DEFAULT CURRENT_TIMESTAMP);
 
 DROP TABLE IF EXISTS Locations;
 CREATE TABLE Locations (LocId INTEGER PRIMARY KEY AUTOINCREMENT,
