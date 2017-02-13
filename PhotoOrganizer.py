@@ -136,6 +136,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             headerState = sqlite3.Binary(self.horizontalHeader.saveState())
             cur.execute(q, (__release__, headerState))
 
+    ########################
+    #   Album Operations   #
+    ########################
+
     def importFolder(self, directory, dbfile):
         """Populate the table with images from directory
 
@@ -293,17 +297,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionImportFolder.setEnabled(True)
         self.saveAppData()
 
-    def setWidthHeight(self, size=None):
-        """Set the width and height of the table columns/rows
-
-        Width is set to the desired icon size, not actual size for consistency
-        when images are filtered. Rows are always resized to contents.
-        """
-        size = size or self.iconSize
-        self.view.setColumnWidth(0, size)
-        self.verticalHeader.setDefaultSectionSize(size)
-        self.verticalHeader.resizeSections(self.verticalHeader.Fixed)
-        self.view.setIconSize(QtCore.QSize(size, size))
+    ######################
+    #  Helper Functions  #
+    ######################
 
     def setFilter(self, pattern=None, column=None):
         """Set the table filter
@@ -319,63 +315,21 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         if pattern is not None:
             self.lineEdit.setText(pattern)
 
+    def setWidthHeight(self, size=None):
+        """Set the width and height of the table columns/rows
+
+        Width is set to the desired icon size, not actual size for consistency
+        when images are filtered. Rows are always resized to contents.
+        """
+        size = size or self.iconSize
+        self.view.setColumnWidth(0, size)
+        self.verticalHeader.setDefaultSectionSize(size)
+        self.verticalHeader.resizeSections(self.verticalHeader.Fixed)
+        self.view.setIconSize(QtCore.QSize(size, size))
+
     #####################
     #       SLOTS       #
     #####################
-
-    @QtCore.pyqtSlot(int)
-    def on_sliderValueChanged(self, size):
-        """Resize the image thumbnails. Slot for the slider
-
-        Arguments:
-            size (int): The desired square size of the thumbnail in pixels
-        """
-        self.setWidthHeight(size)
-
-    @QtCore.pyqtSlot(QtCore.QPoint)
-    def on_headerContext_requested(self, point):
-        """Set up context menu for column filter.
-
-        Slot for the horizontal header
-
-        Arguments:
-            point (QPoint): The relative position of the mouse when clicked
-        """
-        logicalIndex = self.horizontalHeader.logicalIndexAt(point)
-        if logicalIndex < 0:
-            return
-        self.logicalIndex = logicalIndex
-        self.menuValues = QtGui.QMenu(self)
-        self.signalMapper = QtCore.QSignalMapper(self)
-
-        values = [str(self.model.data(self.model.index(row,
-                  self.logicalIndex)).toPyObject())
-                  for row in range(self.model.rowCount())]
-        valuesUnique = sorted(list(set(values)))
-        if '' in valuesUnique:
-            valuesUnique.remove('')
-
-        if not valuesUnique:
-            return
-
-        actionSort = QtGui.QAction("Sort", self)
-        actionSort.triggered.connect(self.on_sort_triggered)
-        self.menuValues.addAction(actionSort)
-        self.menuValues.addSeparator()
-        actionAll = QtGui.QAction("All", self)
-        actionAll.triggered.connect(self.on_actionAll_triggered)
-        self.menuValues.addAction(actionAll)
-        self.menuValues.addSeparator()
-
-        for actionName in valuesUnique:
-            action = QtGui.QAction(actionName, self)
-            self.signalMapper.setMapping(action, actionName)
-            action.triggered.connect(self.signalMapper.map)
-            self.menuValues.addAction(action)
-
-        self.signalMapper.mapped[str].connect(self.on_signalMapper_mapped)
-
-        self.menuValues.exec_(self.horizontalHeader.mapToGlobal(point))
 
     @QtCore.pyqtSlot()
     def on_actionAll_triggered(self):
@@ -386,39 +340,33 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.setFilter('', self.logicalIndex)
 
     @QtCore.pyqtSlot()
-    def on_sort_triggered(self):
-        """Sort by the clicked column"""
-        so = {QtCore.Qt.AscendingOrder: QtCore.Qt.DescendingOrder,
-              QtCore.Qt.DescendingOrder: QtCore.Qt.AscendingOrder}
-        self.view.sortByColumn(self.logicalIndex,
-                               so[self.horizontalHeader.sortIndicatorOrder()])
+    def on_actionBatchTag(self):
+        """ Add tags to a batch of files
 
-    @QtCore.pyqtSlot(str)
-    def on_signalMapper_mapped(self, pattern):
-        """Set the filter for the column that was clicked
-
-        Slot for the context menu action signal mapper
-
-        Arguments:
-            pattern (str): The pattern for the regular expression
+        Slot for actionBatchTag
         """
-        self.setFilter(pattern, self.logicalIndex)
+        # Show the dialog and get the new tags
+        selection = self.view.selectedIndexes()
+        source = [self.proxy.mapToSource(i) for i in selection]
+        selectedRows = list(set([k.row() for k in source]))
+        dlg = BatchTag(self)
+        st = dlg.exec_()
+        if st == dlg.Rejected:
+            return
 
-    @QtCore.pyqtSlot(str)
-    def on_lineEdit_textChanged(self, pattern):
-        """Set the filter
+        # Get a list of new tags
+        newTagStr = str(dlg.lineEdit.text())
+        newTags = [k.strip() for k in re.split(';|,', newTagStr)
+                   if k.strip() != '']
 
-        Slot for the line edit
-
-        Arguments:
-            pattern (str): The pattern for the regular expression
-        """
-        search = QtCore.QRegExp(pattern,
-                                QtCore.Qt.CaseInsensitive,
-                                QtCore.QRegExp.RegExp)
-
-        self.proxy.setFilterRegExp(search)
-        self.setWidthHeight()
+        # Apply the new tags, keeping the old
+        for row in selectedRows:
+            index = self.model.index(row, self.fields.index('Tags'))
+            oldTagStr = str(index.data().toPyObject())
+            oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
+                       if k.strip() != '']
+            replace = oldTags + [k for k in newTags if k not in oldTags]
+            self.model.setData(index, QtCore.QVariant('; '.join(replace)))
 
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
     def on_dataChanged(self, topLeft, bottomRight):
@@ -494,7 +442,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             allFiles.append(os.path.join(self.album[r, 'Directory'],
                                          self.album[r, 'File Name']))
 
-
         self.imageViewer.setImage(allFiles, row)
 
         # Show the window
@@ -509,6 +456,62 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             # Bring it to the front
             self.imageViewer.raise_()
 
+    @QtCore.pyqtSlot(QtCore.QPoint)
+    def on_headerContext_requested(self, point):
+        """Set up context menu for column filter.
+
+        Slot for the horizontal header
+
+        Arguments:
+            point (QPoint): The relative position of the mouse when clicked
+        """
+        logicalIndex = self.horizontalHeader.logicalIndexAt(point)
+        if logicalIndex < 0:
+            return
+        self.logicalIndex = logicalIndex
+        self.menuValues = QtGui.QMenu(self)
+        self.signalMapper = QtCore.QSignalMapper(self)
+
+        values = [str(self.model.data(self.model.index(row,
+                  self.logicalIndex)).toPyObject())
+                  for row in range(self.model.rowCount())]
+        valuesUnique = sorted(list(set(values)))
+        if '' in valuesUnique:
+            valuesUnique.remove('')
+
+        if not valuesUnique:
+            return
+
+        actionSort = QtGui.QAction("Sort", self)
+        actionSort.triggered.connect(self.on_sort_triggered)
+        self.menuValues.addAction(actionSort)
+        self.menuValues.addSeparator()
+        actionAll = QtGui.QAction("All", self)
+        actionAll.triggered.connect(self.on_actionAll_triggered)
+        self.menuValues.addAction(actionAll)
+        self.menuValues.addSeparator()
+
+        for actionName in valuesUnique:
+            action = QtGui.QAction(actionName, self)
+            self.signalMapper.setMapping(action, actionName)
+            action.triggered.connect(self.signalMapper.map)
+            self.menuValues.addAction(action)
+
+        self.signalMapper.mapped[str].connect(self.on_signalMapper_mapped)
+
+        self.menuValues.exec_(self.horizontalHeader.mapToGlobal(point))
+
+    @QtCore.pyqtSlot()
+    def on_helpAbout(self):
+        """ Create the program about menu and display it """
+        mess_str = ("<b>Photo Organizer</b> v{}"
+                    "<p>Developed by Luke McNinch (lcmcinch@yahoo.com)"
+                    "<p>Python {} - Qt {} - PyQt {}")
+        mess_format = mess_str.format(__release__, platform.python_version(),
+                                      QtCore.QT_VERSION_STR,
+                                      QtCore.PYQT_VERSION_STR)
+        QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
+
     @QtCore.pyqtSlot()
     def on_importFolder(self):
         """ Import photos from a folder
@@ -522,6 +525,22 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 self.view.setHidden(False)
                 self.labelNoPhotos.setHidden(True)
             self.importFolder(str(folder), self.databaseFile)
+
+    @QtCore.pyqtSlot(str)
+    def on_lineEdit_textChanged(self, pattern):
+        """Set the filter
+
+        Slot for the line edit
+
+        Arguments:
+            pattern (str): The pattern for the regular expression
+        """
+        search = QtCore.QRegExp(pattern,
+                                QtCore.Qt.CaseInsensitive,
+                                QtCore.QRegExp.RegExp)
+
+        self.proxy.setFilterRegExp(search)
+        self.setWidthHeight()
 
     @QtCore.pyqtSlot()
     def on_newDatabase(self):
@@ -561,45 +580,33 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         self.openDatabase(dbfile)
 
-    @QtCore.pyqtSlot()
-    def on_actionBatchTag(self):
-        """ Add tags to a batch of files
+    @QtCore.pyqtSlot(str)
+    def on_signalMapper_mapped(self, pattern):
+        """Set the filter for the column that was clicked
 
-        Slot for actionBatchTag
+        Slot for the context menu action signal mapper
+
+        Arguments:
+            pattern (str): The pattern for the regular expression
         """
-        # Show the dialog and get the new tags
-        selection = self.view.selectedIndexes()
-        source = [self.proxy.mapToSource(i) for i in selection]
-        selectedRows = list(set([k.row() for k in source]))
-        dlg = BatchTag(self)
-        st = dlg.exec_()
-        if st == dlg.Rejected:
-            return
+        self.setFilter(pattern, self.logicalIndex)
 
-        # Get a list of new tags
-        newTagStr = str(dlg.lineEdit.text())
-        newTags = [k.strip() for k in re.split(';|,', newTagStr)
-                   if k.strip() != '']
+    @QtCore.pyqtSlot(int)
+    def on_sliderValueChanged(self, size):
+        """Resize the image thumbnails. Slot for the slider
 
-        # Apply the new tags, keeping the old
-        for row in selectedRows:
-            index = self.model.index(row, self.fields.index('Tags'))
-            oldTagStr = str(index.data().toPyObject())
-            oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
-                       if k.strip() != '']
-            replace = oldTags + [k for k in newTags if k not in oldTags]
-            self.model.setData(index, QtCore.QVariant('; '.join(replace)))
+        Arguments:
+            size (int): The desired square size of the thumbnail in pixels
+        """
+        self.setWidthHeight(size)
 
     @QtCore.pyqtSlot()
-    def on_helpAbout(self):
-        """ Create the program about menu and display it """
-        mess_str = ("<b>Photo Organizer</b> v{}"
-                    "<p>Developed by Luke McNinch (lcmcinch@yahoo.com)"
-                    "<p>Python {} - Qt {} - PyQt {}")
-        mess_format = mess_str.format(__release__, platform.python_version(),
-                                      QtCore.QT_VERSION_STR,
-                                      QtCore.PYQT_VERSION_STR)
-        QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
+    def on_sort_triggered(self):
+        """Sort by the clicked column"""
+        so = {QtCore.Qt.AscendingOrder: QtCore.Qt.DescendingOrder,
+              QtCore.Qt.DescendingOrder: QtCore.Qt.AscendingOrder}
+        self.view.sortByColumn(self.logicalIndex,
+                               so[self.horizontalHeader.sortIndicatorOrder()])
 
     #####################
     #     PROPERTIES    #
