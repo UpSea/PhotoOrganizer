@@ -118,8 +118,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         settings.clear()
         settings.setValue("MainWindow/Geometry", QtCore.QVariant(
                           self.saveGeometry()))
-        settings.setValue("MainWindow/State", QtCore.QVariant(
-                          self.saveState()))
         settings.setValue("lastDatabase", QtCore.QVariant(self.databaseFile))
 
         # Save database-specific settings
