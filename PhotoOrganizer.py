@@ -200,7 +200,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Allow the application to stay responsive and show the progress
                 QtGui.QApplication.processEvents()
 
-        self.statusbar.showMessage('Done')
+        self.statusbar.showMessage('Finished Import', 5000)
 
         if changeDir:
             dlg = WarningDialog('Matching Files Found', self)
@@ -214,7 +214,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             dlg.exec_()
 
         self.setWidthHeight()
-        QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
 
     def openDatabase(self, dbfile):
         """ Open a database file and populate the album table
@@ -289,9 +288,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 hh = self.horizontalHeader
                 hh.restoreState(QtCore.QByteArray(str(geometry[0])))
 
-        self.statusbar.showMessage('Done')
+        self.statusbar.showMessage('Finished Loading', 4000)
         self.setWidthHeight()
-        QtCore.QTimer.singleShot(5000, self.statusbar.clearMessage)
         self.actionImportFolder.setEnabled(True)
         self.saveAppData()
 
@@ -488,10 +486,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Get the file path
         if index.column() != 0:
             return
-        mapped = self.proxy.mapToSource(index)
-        fullfile = os.path.join(self.album[mapped.row(), 'Directory'],
-                                self.album[mapped.row(), 'File Name'])
-        self.imageViewer.setImage(fullfile)
+        row = index.row()
+        allFiles = []
+        for k in range(self.proxy.rowCount()):
+            i = self.proxy.mapToSource(self.proxy.index(k, 0))
+            r = i.row()
+            allFiles.append(os.path.join(self.album[r, 'Directory'],
+                                         self.album[r, 'File Name']))
+
+
+        self.imageViewer.setImage(allFiles, row)
 
         # Show the window
         if self.imageViewer.isHidden():
