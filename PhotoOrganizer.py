@@ -106,6 +106,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         """ Re-implemented to restore window geometry when shown """
         settings = QtCore.QSettings()
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
+        dbfile = settings.value("lastDatabase").toString()
+        if dbfile:
+            self.openDatabase(str(dbfile))
 
     def closeEvent(self, event):
         """ Re-implemented to save settings """
@@ -117,9 +120,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                           self.saveGeometry()))
         settings.setValue("MainWindow/State", QtCore.QVariant(
                           self.saveState()))
+        settings.setValue("lastDatabase", QtCore.QVariant(self.databaseFile))
 
         # Save database-specific settings
         self.saveAppData()
+
+        # Close child windows
+        self.imageViewer.close()
 
     def saveAppData(self):
         """ Save database-specific settings """
@@ -189,7 +196,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
-                msg = 'Importing Photo %d of %d' % (k, len(images))
+                msg = 'Importing Photo %d of %d' % (k+1, len(images))
                 self.statusbar.showMessage(msg)
 
                 # Allow the application to stay responsive and show the progress
