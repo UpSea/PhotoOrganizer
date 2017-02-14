@@ -1,5 +1,6 @@
 from fieldobjects import FieldObject, FieldObjectContainer
 from collections import MutableSequence
+from datetime import datetime
 
 # Handle python versions
 import sys
@@ -57,6 +58,16 @@ class Photo(dict):
     def __repr__(self):
         return '<Photo: %s>' % dict.__repr__(self)
 
+    @property
+    def date(self):
+        fieldnames = [k.name for k in self.keys()]
+        date = self['Date'] if 'Date' in fieldnames else None
+        if date:
+            try:
+                return datetime.strptime(date, '%Y:%m:%d %H:%M:%S')
+            except ValueError:
+                return
+
 
 class Album(MutableSequence):
     """A Photo container
@@ -78,14 +89,17 @@ class Album(MutableSequence):
         assert(isinstance(types, list))
         assert(all([isinstance(k, type) for k in types]))
 
+        # Ensure fieldobj is a FieldObjectContainer
         if isinstance(fields, list):
             fieldobj = FieldObjectContainer(fields, types)
         else:
             fieldobj = fields
 
+        # Store the fields and initialize entries
         self._fields = fieldobj
         self._entries = []
 
+        # Create and store the entries
         values = values or []
         for v in values:
             self._entries.append(Photo(self._fields, v))
@@ -137,8 +151,9 @@ if __name__ == "__main__":
             self.field = FieldObject('Field1')
             self.field2 = FieldObject('Field2')
             self.field3 = FieldObject('IntField', typ=int)
-            self.photo = Photo([self.field, self.field2, self.field3],
-                               ['meta1', 'meta2', 1])
+            self.dateField = FieldObject('Date')
+            self.photo = Photo([self.field, self.field2, self.field3, self.dateField],
+                               ['meta1', 'meta2', 1, '2017:01:01 00:00:01'])
 
         def test_constructor(self):
             self.assertRaises(AssertionError, Photo, ['field1', 'field2'])
@@ -150,11 +165,14 @@ if __name__ == "__main__":
 
         def test_removeField(self):
             self.photo.removeField(self.field)
-            self.assertEqual(len(self.photo.keys()), 2)
+            self.assertEqual(len(self.photo.keys()), 3)
             self.assertEqual(self.photo[self.field2], 'meta2')
 
         def test_getItem(self):
             self.assertEqual(self.photo['Field1'], 'meta1')
+
+        def test_date(self):
+            self.assertEqual(self.photo.date, datetime(2017, 1, 1, 0, 0, 1))
 
     class AlbumTest(unittest.TestCase):
 

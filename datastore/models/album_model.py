@@ -1,5 +1,5 @@
 from PyQt4 import QtCore, QtGui
-from datetime import datetime
+from datetime import datetime, MAXYEAR, MINYEAR
 
 # Place holder
 edit_role = QtCore.Qt.EditRole
@@ -184,24 +184,53 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.endResetModel()
         self.dirty.emit()
 
+    def date(self, row):
+        date = self.dataset[row].date
+        return QtCore.QDate(date) if date else None
+
 
 class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
     """ A proxy model subclass for filtering on any column """
 
+    def __init__(self, *args, **kwargs):
+        super(AlbumSortFilterModel, self).__init__(*args, **kwargs)
+        self.fromDate = QtCore.QDate(datetime(MINYEAR, 1, 1))
+        self.toDate = QtCore.QDate(datetime(MAXYEAR, 1, 1))
+
     def filterAcceptsRow(self, sourceRow, sourceParent):
         """ Re-implemented to apply the regular expression filter to all
         columns. If any column has a match, the row is accepted.
+
+        Also applies a date range filter
 
         Arguments:
             sourceRow (int): The row in question
             sourceParent (QModelIndex): The index of the row's parent.
         """
         sourceModel = self.sourceModel()
+        # Check date range first
+        date = sourceModel.date(sourceRow)
+        if date and date < self.fromDate or date > self.toDate:
+            return False
+
+        # Check each column for the regular expression
         for c in range(sourceModel.columnCount()):
             index = sourceModel.index(sourceRow, c, sourceParent)
             if index.data().toString().contains(self.filterRegExp()):
                 return True
         return False
+
+    @QtCore.pyqtSlot(QtCore.QDate)
+    def setFromDate(self, date):
+        """ Set the from date """
+        self.fromDate = date
+        self.invalidate()
+
+    @QtCore.pyqtSlot(QtCore.QDate)
+    def setToDate(self, date):
+        """ Set the to date """
+        self.toDate = date
+        self.invalidate()
 
 
 class deleteCmd(QtGui.QUndoCommand):

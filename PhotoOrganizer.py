@@ -24,6 +24,7 @@ from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
 from PhotoViewer import ImageViewer
 from Dialogs import WarningDialog, warning_box, BatchTag
 from create_database import create_database
+from datetime import datetime
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
@@ -88,6 +89,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
         self.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.actionAbout.triggered.connect(self.on_helpAbout)
+        self.dateFrom.dateChanged.connect(self.proxy.setFromDate)
+        self.dateTo.dateChanged.connect(self.proxy.setToDate)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -298,6 +301,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.statusbar.showMessage('Finished Loading', 4000)
         self.setWidthHeight()
         self.actionImportFolder.setEnabled(True)
+        self.setDateRange()
         self.saveAppData()
 
     ######################
@@ -329,6 +333,19 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.verticalHeader.setDefaultSectionSize(size)
         self.verticalHeader.resizeSections(self.verticalHeader.Fixed)
         self.view.setIconSize(QtCore.QSize(size, size))
+
+    def setDateRange(self):
+        """ Set the date edits for a range """
+        def timestamp(x):
+            try:
+                dt = datetime.strptime(x['Date'], '%Y:%m:%d %H:%M:%S')
+                return dt.toordinal()
+            except ValueError:
+                return
+
+        timestamps = [k for k in map(timestamp, self.album) if k]
+        self.dateFrom.setDate(datetime.fromordinal(min(timestamps)))
+        self.dateTo.setDate(datetime.fromordinal(max(timestamps)))
 
     #####################
     #       SLOTS       #
