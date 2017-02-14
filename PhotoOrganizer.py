@@ -188,13 +188,16 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 # Add the model items
                 cur.execute(iqry, [fname, directory, date, str(hsh),
                                    sqlite3.Binary(fp.getvalue())])
-
                 fileId = cur.lastrowid
+                cur.execute('SELECT importTimeUTC FROM File WHERE FilId=?',
+                            (fileId,))
+                importTime = cur.fetchone()[0]
+
                 pix = QtGui.QPixmap()
                 pix.loadFromData(fp.getvalue())
                 thumb = QtGui.QIcon(pix)
-                values = ['', False, fname, date, str(hsh), fileId, '',
-                          directory]
+                values = ['', False, fname, date, importTime, str(hsh), fileId,
+                          '', directory]
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
@@ -420,7 +423,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
                     '(SELECT LocId FROM FileLoc)'
                 cur.execute(q)
-            self.proxy.invalidate()
+        self.proxy.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
     def on_doubleClick(self, index):
