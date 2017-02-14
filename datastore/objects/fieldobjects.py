@@ -156,13 +156,27 @@ class FieldObjectContainer(MutableSequence):
 
         Arguments:
             index (int)
-            value (FieldObject, object): If an object is given, its str is used
-                as the field name
+            value (FieldObject, object): If anything other than a Field Object
+                is given, its str is used as the field name and all other
+                properties are let default.
         """
         if issubclass(value.__class__, FieldObject):
             self._fieldobjs.insert(index, value)
         else:
             self._fieldobjs.insert(index, FieldObject(str(value)))
+
+    def append(self, value):
+        """ Append a new field
+
+        Arguments:
+            value (FieldObject, obj): The FieldObject to append. If anything
+                other than a FieldObject is given, its str is used as the field
+                name and all other properties are left default.
+        """
+        if issubclass(value.__class__, FieldObject):
+            self._fieldobjs.append(value)
+        else:
+            self._fieldobjs.append(FieldObject(str(value)))
 
     def index(self, value):
         """ Return the index of the given field

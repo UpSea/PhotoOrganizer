@@ -30,18 +30,6 @@ from datetime import datetime
 class myWindow(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    columns = ['Image', 'Tagged', 'File Name', 'Date', 'Import Date', 'Hash',
-               'FileId', 'Tags', 'Directory']
-    required = [True, True, True, True, True, True, True, False, True]
-    editor = [None, FieldObject.CheckBoxEditor, None, None, None, None, None,
-              FieldObject.LineEditEditor, None]
-    editable = [False, True, False, False, False, False, False, True, False]
-    name_editable=[False, False, False, False, False, False, False, True, False]
-    hidden = [False, False, False, False, False, True, True, False, False]
-    types = [str, bool, str, str, str, str, int, str, str]
-    fields = FieldObjectContainer(columns, required, editor, editable,
-                                  name_editable, hidden, types)
-
     def __init__(self, parent=None):
         super(myWindow, self).__init__(parent)
         self.setupUi(self)
@@ -49,6 +37,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.databaseFile = None
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
+        self.setupFields()
 
         # Setup application organization and application name
         app = QtGui.QApplication.instance()
@@ -78,7 +67,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
-        self.view.setColumnHidden(self.columns.index('FileId'), True)
         self.view.setItemDelegate(AlbumDelegate())
 
         # Signal Connections
@@ -363,6 +351,29 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         checkDate = self.checkDateRange.isChecked()
         self.labelTo.setVisible(checkDate)
         self.dateTo.setVisible(checkDate)
+
+    def setupFields(self):
+        fields = FieldObjectContainer()
+        fdict = [{'name': 'Image', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Tagged', 'required': True,
+                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False},
+                 {'name': 'File Name', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Date', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Import Date', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Hash', 'required': True, 'editable': False,
+                  'name_editable': False, 'hidden': True},
+                 {'name': 'FileId', 'required': False, 'editable': False,
+                  'name_editable': False, 'hidden': True},
+                 {'name': 'Tags'},
+                 {'name': 'Directory', 'required': True, 'editable': False,
+                  'name_editable': False}]
+        for f in fdict:
+            fields.append(FieldObject(**f))
+        self.fields = fields
 
     #####################
     #       SLOTS       #
