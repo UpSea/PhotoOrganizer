@@ -192,10 +192,16 @@ class AlbumModel(QtCore.QAbstractTableModel):
 class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
     """ A proxy model subclass for filtering on any column """
 
+    YearFilter = 0
+    MonthFilter = 1
+    DayFilter = 2
+
     def __init__(self, *args, **kwargs):
         super(AlbumSortFilterModel, self).__init__(*args, **kwargs)
         self.fromDate = QtCore.QDate(datetime(MINYEAR, 1, 1))
         self.toDate = QtCore.QDate(datetime(MAXYEAR, 1, 1))
+        self._dateBetween = True
+        self._dateFilterType = self.DayFilter
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         """ Re-implemented to apply the regular expression filter to all
@@ -210,8 +216,18 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         sourceModel = self.sourceModel()
         # Check date range first
         date = sourceModel.date(sourceRow)
-        if date and date < self.fromDate or date > self.toDate:
-            return False
+        if date:
+            # Round the dates to the desired resolution
+            checkDate = self.roundDate(date)
+            fromDate = self.roundDate(self.fromDate)
+            toDate = self.roundDate(self.toDate)
+
+            if self.dateBetween:
+                if checkDate < fromDate or checkDate > toDate:
+                    return False
+            else:
+                if checkDate != fromDate:
+                    return False
 
         # Check each column for the regular expression
         for c in range(sourceModel.columnCount()):
@@ -219,6 +235,40 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
             if index.data().toString().contains(self.filterRegExp()):
                 return True
         return False
+
+    def roundDate(self, date):
+        """ Truncate the date to the year/month/day per dateFilterType
+
+        Arguments:
+            date (QDate):  The date to truncate
+        """
+        dateParts = [date.year(), date.month(), date.day()]
+        if self.dateFilterType < self.DayFilter:
+            dateParts[2] = 1
+        if self.dateFilterType < self.MonthFilter:
+            dateParts[1] = 1
+        return QtCore.QDate(*dateParts)
+
+    def setDateFilterType(self, filt):
+        """ Set the date filter type
+
+        Arguments:
+            filt (int):  The argument type (YearFilter, MonthFilter or
+                DayFilter class properties)
+        """
+        if filt not in [self.YearFilter, self.MonthFilter, self.DayFilter]:
+            raise ValueError('{} not a valid filter type'.format(filt))
+        self._dateFilterType = filt
+        self.invalidate()
+
+    def setDateBetween(self, value):
+        """ Set filter to match date range or exact date
+
+        Arguments:
+            value (bool): True will filter a date range
+        """
+        self._dateBetween = bool(value)
+        self.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QDate)
     def setFromDate(self, date):
@@ -231,6 +281,14 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         """ Set the to date """
         self.toDate = date
         self.invalidate()
+
+    @property
+    def dateFilterType(self):
+        return self._dateFilterType
+
+    @property
+    def dateBetween(self):
+        return self._dateBetween
 
 
 class deleteCmd(QtGui.QUndoCommand):
@@ -255,4 +313,5 @@ class deleteCmd(QtGui.QUndoCommand):
 
 
 if __name__ == "__main__":
-    'print(__version__)'
+    proxy = AlbumSortFilterModel()
+    print proxy.roundDate(QtCore.QDate(datetime.now()))

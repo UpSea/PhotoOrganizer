@@ -91,6 +91,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionAbout.triggered.connect(self.on_helpAbout)
         self.dateFrom.dateChanged.connect(self.proxy.setFromDate)
         self.dateTo.dateChanged.connect(self.proxy.setToDate)
+        self.checkDateRange.stateChanged.connect(self.on_checkDateChanged)
+        self.comboDateFilter.currentIndexChanged[int].connect(self.on_comboDate)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -104,6 +106,12 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Create the image viewer window
         self.imageViewer = ImageViewer()
+
+        # Setup the date filters
+        self.comboDateFilter.addItems(['Year', 'Month', 'Day'])
+        self.on_comboDate(self.proxy.MonthFilter)
+        self.checkDateRange.setChecked(True)
+        self.on_checkDateChanged(QtCore.Qt.Checked)
 
     def showEvent(self, event):
         """ Re-implemented to restore window geometry when shown """
@@ -303,6 +311,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionImportFolder.setEnabled(True)
         self.setDateRange()
         self.saveAppData()
+        self.setWidgetVisibility()
 
     ######################
     #  Helper Functions  #
@@ -346,6 +355,14 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         timestamps = [k for k in map(timestamp, self.album) if k]
         self.dateFrom.setDate(datetime.fromordinal(min(timestamps)))
         self.dateTo.setDate(datetime.fromordinal(max(timestamps)))
+
+    def setWidgetVisibility(self):
+        """
+        Set the visibility of widgets based on other widget or data states
+        """
+        checkDate = self.checkDateRange.isChecked()
+        self.labelTo.setVisible(checkDate)
+        self.dateTo.setVisible(checkDate)
 
     #####################
     #       SLOTS       #
@@ -395,6 +412,33 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             tIndex = self.model.index(row, self.fields.index('Tagged'))
             if markTagged:
                 self.model.setData(tIndex, QtCore.QVariant(True))
+
+    @QtCore.pyqtSlot(int)
+    def on_checkDateChanged(self, state):
+        """ Set whether the proxy  model matches a date or date range
+
+        A slot for the range checkbox's stateChanged signal
+
+        Arguments:
+            state (int): QtCore.Qt.CheckState (Checked means use range)
+        """
+        self.setWidgetVisibility()
+        self.proxy.setDateBetween(state == QtCore.Qt.Checked)
+
+    @QtCore.pyqtSlot(int)
+    def on_comboDate(self, filt):
+        """ Set the proxy model's date filter type
+
+        A slot for the combobox's currentIndexChanged signal
+
+        Arguments:
+            filt (int): The filter setting. Should align with
+                AlbumSortFilterModel.<>Filter properties.
+        """
+        self.proxy.setDateFilterType(filt)
+        displayFormats = {0: 'yyyy', 1: 'yyyy-MM', 2: 'yyyy-MM-dd'}
+        self.dateFrom.setDisplayFormat(displayFormats[filt])
+        self.dateTo.setDisplayFormat(displayFormats[filt])
 
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
     def on_dataChanged(self, topLeft, bottomRight):
