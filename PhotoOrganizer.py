@@ -374,6 +374,8 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         if st == dlg.Rejected:
             return
 
+        markTagged = dlg.checkMarkTagged.isChecked()
+
         # Get a list of new tags
         newTagStr = str(dlg.lineEdit.text())
         newTags = [k.strip() for k in re.split(';|,', newTagStr)
@@ -381,12 +383,18 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Apply the new tags, keeping the old
         for row in selectedRows:
+            # Set tags
             index = self.model.index(row, self.fields.index('Tags'))
             oldTagStr = str(index.data().toPyObject())
             oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
                        if k.strip() != '']
             replace = oldTags + [k for k in newTags if k not in oldTags]
             self.model.setData(index, QtCore.QVariant('; '.join(replace)))
+
+            # Set tagged
+            tIndex = self.model.index(row, self.fields.index('Tagged'))
+            if markTagged:
+                self.model.setData(tIndex, QtCore.QVariant(True))
 
     @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
     def on_dataChanged(self, topLeft, bottomRight):
