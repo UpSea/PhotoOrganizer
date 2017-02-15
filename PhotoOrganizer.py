@@ -381,14 +381,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
     #####################
 
     @QtCore.pyqtSlot()
-    def on_actionAll_triggered(self):
-        """Remove filter for the column that was clicked
-
-        Slot for the context menu action
-        """
-        self.setFilter('', self.logicalIndex)
-
-    @QtCore.pyqtSlot()
     def on_actionBatchTag(self):
         """ Add tags to a batch of files
 
@@ -554,34 +546,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             return
         self.logicalIndex = logicalIndex
         self.menuValues = QtGui.QMenu(self)
-        self.signalMapper = QtCore.QSignalMapper(self)
-
-        values = [str(self.model.data(self.model.index(row,
-                  self.logicalIndex)).toPyObject())
-                  for row in range(self.model.rowCount())]
-        valuesUnique = sorted(list(set(values)))
-        if '' in valuesUnique:
-            valuesUnique.remove('')
-
-        if not valuesUnique:
-            return
 
         actionSort = QtGui.QAction("Sort", self)
         actionSort.triggered.connect(self.on_sort_triggered)
         self.menuValues.addAction(actionSort)
-        self.menuValues.addSeparator()
-        actionAll = QtGui.QAction("All", self)
-        actionAll.triggered.connect(self.on_actionAll_triggered)
-        self.menuValues.addAction(actionAll)
-        self.menuValues.addSeparator()
-
-        for actionName in valuesUnique:
-            action = QtGui.QAction(actionName, self)
-            self.signalMapper.setMapping(action, actionName)
-            action.triggered.connect(self.signalMapper.map)
-            self.menuValues.addAction(action)
-
-        self.signalMapper.mapped[str].connect(self.on_signalMapper_mapped)
 
         self.menuValues.exec_(self.horizontalHeader.mapToGlobal(point))
 
@@ -663,17 +631,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Create the database and show the main widget
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         self.openDatabase(dbfile)
-
-    @QtCore.pyqtSlot(str)
-    def on_signalMapper_mapped(self, pattern):
-        """Set the filter for the column that was clicked
-
-        Slot for the context menu action signal mapper
-
-        Arguments:
-            pattern (str): The pattern for the regular expression
-        """
-        self.setFilter(pattern, self.logicalIndex)
 
     @QtCore.pyqtSlot(int)
     def on_sliderValueChanged(self, size):
