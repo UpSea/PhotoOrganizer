@@ -231,6 +231,8 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
 
         # Check each column for the regular expression
         for c in range(sourceModel.columnCount()):
+            if not sourceModel.dataset.fields[c].filter:
+                continue
             index = sourceModel.index(sourceRow, c, sourceParent)
             if index.data().toString().contains(self.filterRegExp()):
                 return True

@@ -30,7 +30,8 @@ class FieldObject(object):
     DateEditEditor = 3
 
     def __init__(self, name, required=False, editor=LineEditEditor,
-                 editable=True, name_editable=True, hidden=False, typ=str):
+                 editable=True, name_editable=True, hidden=False, typ=str,
+                 filter=False):
         self._name = name
         self.required = required
         self._editor = editor
@@ -38,6 +39,7 @@ class FieldObject(object):
         self._hidden = hidden
         self.name_editable = name_editable
         self.type = typ
+        self.filter = filter
 
     def __repr__(self):
         return '<FieldObject: %s>' % self.name

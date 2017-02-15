@@ -357,9 +357,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         fdict = [{'name': 'Image', 'required': True, 'editable': False,
                   'name_editable': False},
                  {'name': 'Tagged', 'required': True,
-                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False},
+                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False,
+                  'filter': True},
                  {'name': 'File Name', 'required': True, 'editable': False,
-                  'name_editable': False},
+                  'name_editable': False, 'filter': True},
                  {'name': 'Date', 'required': True, 'editable': False,
                   'name_editable': False},
                  {'name': 'Import Date', 'required': True, 'editable': False,
@@ -368,7 +369,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                   'name_editable': False, 'hidden': True},
                  {'name': 'FileId', 'required': False, 'editable': False,
                   'name_editable': False, 'hidden': True},
-                 {'name': 'Tags'},
+                 {'name': 'Tags', 'filter': True},
                  {'name': 'Directory', 'required': True, 'editable': False,
                   'name_editable': False}]
         for f in fdict:
