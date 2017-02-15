@@ -88,6 +88,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.horizontalHeader = self.view.horizontalHeader()
         self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
+        self.horizontalHeader.setMovable(True)
         self.verticalHeader = self.view.verticalHeader()
 
         # Create the image viewer window
