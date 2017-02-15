@@ -110,7 +110,7 @@
         </layout>
        </item>
        <item>
-        <widget class="PhotoTable" name="view"/>
+        <widget class="QTableView" name="view"/>
        </item>
        <item>
         <widget class="QLabel" name="labelNoPhotos">
@@ -163,6 +163,7 @@ This may take a while if there are many photos. Watch the status bar below for p
      <string>Organize</string>
     </property>
     <addaction name="actionBatchTag"/>
+    <addaction name="actionHideTagged"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -215,14 +216,15 @@ This may take a while if there are many photos. Watch the status bar below for p
     <string>About</string>
    </property>
   </action>
+  <action name="actionHideTagged">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Hide Tagged Photos</string>
+   </property>
+  </action>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>PhotoTable</class>
-   <extends>QTableView</extends>
-   <header>photo_table</header>
-  </customwidget>
- </customwidgets>
  <tabstops>
   <tabstop>view</tabstop>
   <tabstop>dateFrom</tabstop>

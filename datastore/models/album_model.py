@@ -202,6 +202,8 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         self.toDate = QtCore.QDate(datetime(MAXYEAR, 1, 1))
         self._dateBetween = True
         self._dateFilterType = self.DayFilter
+        self._hideTagged = False
+        self.taggedField = None
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         """ Re-implemented to apply the regular expression filter to all
@@ -229,14 +231,34 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
                 if checkDate != fromDate:
                     return False
 
+        # Check the tagged field
+        tagged = sourceModel.dataset[sourceRow][self.taggedField]
+        if self._hideTagged and tagged:
+            return False
+
         # Check each column for the regular expression
         for c in range(sourceModel.columnCount()):
+            # Don't filter non-filtered fields
             if not sourceModel.dataset.fields[c].filter:
                 continue
+
+            # Apply regex
             index = sourceModel.index(sourceRow, c, sourceParent)
             if index.data().toString().contains(self.filterRegExp()):
                 return True
         return False
+
+    def filterAcceptsColumn(self, sourceCol, sourceParent):
+        """ Re-implemented to filter out hidden columns
+
+        Arguments:
+            sourceCol (int): The column in question
+            sourceParent (QModelIndex): The index of the columns's parent.
+        """
+        sourceModel = self.sourceModel()
+        if sourceModel.dataset.fields[sourceCol].hidden:
+            return False
+        return True
 
     def roundDate(self, date):
         """ Truncate the date to the year/month/day per dateFilterType
@@ -270,6 +292,17 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
             value (bool): True will filter a date range
         """
         self._dateBetween = bool(value)
+        self.invalidate()
+
+    @QtCore.pyqtSlot(bool)
+    def on_hideTagged(self, checked):
+        """ Set the hideTagged property and invalidate the model
+
+        Slot for the Hide Tagged action
+        Arguments:
+            checked (bool): Checked state of the signaling action
+        """
+        self._hideTagged = checked
         self.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QDate)

@@ -63,6 +63,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
+        self.proxy.taggedField = self.taggedField
 
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
@@ -81,16 +82,13 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.dateTo.dateChanged.connect(self.proxy.setToDate)
         self.checkDateRange.stateChanged.connect(self.on_checkDateChanged)
         self.comboDateFilter.currentIndexChanged[int].connect(self.on_comboDate)
+        self.actionHideTagged.toggled.connect(self.proxy.on_hideTagged)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
         self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
-
         self.verticalHeader = self.view.verticalHeader()
-
-        # Set view to hide columns
-        self.view.rehideColumns()
 
         # Create the image viewer window
         self.imageViewer = ImageViewer()
@@ -375,6 +373,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         for f in fdict:
             fields.append(FieldObject(**f))
         self.fields = fields
+        self.taggedField = 'Tagged'
 
     #####################
     #       SLOTS       #
