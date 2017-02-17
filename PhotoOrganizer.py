@@ -194,8 +194,20 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 pix = QtGui.QPixmap()
                 pix.loadFromData(fp.getvalue())
                 thumb = QtGui.QIcon(pix)
-                values = ['', False, fname, date, importTime, str(hsh), fileId,
-                          '', directory]
+
+                # Create the values list based on the order of fields
+                def updateValues(values, name, val):
+                    values[self.fields.index(name)] = val
+
+                values = ['' for _ in self.fields]
+                updateValues(values, 'Directory', directory)
+                updateValues(values, 'File Name', fname)
+                updateValues(values, 'Date', date)
+                updateValues(values, 'Hash', str(hsh))
+                updateValues(values, 'FileId', fileId)
+                updateValues(values, 'Tagged', False)
+                updateValues(values, 'Import Date', importTime)
+
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
@@ -274,8 +286,20 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 pix.loadFromData(fp.getvalue())
                 thumb = QtGui.QIcon(pix)
 
-                values = ['', tagged, fname, date, insertDate, str(hsh), fileId,
-                          location, directory]
+                # Create the values list based on the order of fields
+                def updateValues(values, name, val):
+                    values[self.fields.index(name)] = val
+
+                values = ['' for _ in self.fields]
+                updateValues(values, 'Directory', directory)
+                updateValues(values, 'File Name', fname)
+                updateValues(values, 'Date', date)
+                updateValues(values, 'Hash', str(hsh))
+                updateValues(values, 'FileId', fileId)
+                updateValues(values, 'Tagged', tagged)
+                updateValues(values, 'Import Date', insertDate)
+                updateValues(values, 'Tags', location)
+
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
 
@@ -340,8 +364,9 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                 return
 
         timestamps = [k for k in map(timestamp, self.album) if k]
-        self.dateFrom.setDate(datetime.fromordinal(min(timestamps)))
-        self.dateTo.setDate(datetime.fromordinal(max(timestamps)))
+        if timestamps:
+            self.dateFrom.setDate(datetime.fromordinal(min(timestamps)))
+            self.dateTo.setDate(datetime.fromordinal(max(timestamps)))
 
     def setWidgetVisibility(self):
         """
@@ -615,6 +640,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
 
+        # Re-set the dataset
+        self.album = Album(self.fields)
+        self.model.changeDataSet(self.album)
+
     @QtCore.pyqtSlot()
     def on_openDatabase(self):
         """ Open an existing database
@@ -675,7 +704,7 @@ if __name__ == "__main__":
 
 #     directory = r"C:\Users\Luke\Files\Python\gallery\Kids"
 #     main.populate(directory)
-#     main.openDatabase('Small2.pdb')
+#     main.openDatabase('WithImportTime.pdb')
 #     main.on_newDatabase()
 
     sys.exit(app.exec_())
