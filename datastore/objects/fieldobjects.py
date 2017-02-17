@@ -21,6 +21,7 @@ class FieldObject(object):
         editable (bool):  (True) Whether or not the field is editable
         name_editable (bool):  (True) Whether or not the field name is editable
         hidden (bool):  (False) Whether or not the field is hidden
+        filt (bool): (False) Whether or not to apply the regex filter to this field
     """
 
     # Editor Enumeration
@@ -31,7 +32,7 @@ class FieldObject(object):
 
     def __init__(self, name, required=False, editor=LineEditEditor,
                  editable=True, name_editable=True, hidden=False, typ=str,
-                 filter=False):
+                 filt=False):
         self._name = name
         self.required = required
         self._editor = editor
@@ -39,7 +40,7 @@ class FieldObject(object):
         self._hidden = hidden
         self.name_editable = name_editable
         self.type = typ
-        self.filter = filter
+        self.filter = filt
 
     def __repr__(self):
         return '<FieldObject: %s>' % self.name
@@ -126,6 +127,11 @@ class FieldObjectContainer(MutableSequence):
                 raise TypeError('Input fields must all be either '
                                 'FieldObject instances or strings')
 
+    def __add__(self, other):
+        assert(isinstance(other, FieldObjectContainer))
+        assert(all([isinstance(k, FieldObject) for k in other]))
+        return self._fieldobjs + other._fieldobjs
+
     def __getitem__(self, key):
         if issubclass(key.__class__, FieldObject):
             key = key.name
@@ -153,7 +159,7 @@ class FieldObjectContainer(MutableSequence):
         x = ', '.join(str_list)
         return ('[' + x + ']')
 
-    def insert(self, index, value):
+    def insert(self, index, value, **kwargs):
         """ Insert a new field
 
         Arguments:
@@ -165,9 +171,9 @@ class FieldObjectContainer(MutableSequence):
         if issubclass(value.__class__, FieldObject):
             self._fieldobjs.insert(index, value)
         else:
-            self._fieldobjs.insert(index, FieldObject(str(value)))
+            self._fieldobjs.insert(index, FieldObject(str(value), **kwargs))
 
-    def append(self, value):
+    def append(self, value, **kwargs):
         """ Append a new field
 
         Arguments:
@@ -178,7 +184,10 @@ class FieldObjectContainer(MutableSequence):
         if issubclass(value.__class__, FieldObject):
             self._fieldobjs.append(value)
         else:
-            self._fieldobjs.append(FieldObject(str(value)))
+            self._fieldobjs.append(FieldObject(str(value), **kwargs)) #Need to document
+
+    def extend(self, values):
+        MutableSequence.extend(self._fieldobjs, values)
 
     def index(self, value):
         """ Return the index of the given field
@@ -254,5 +263,13 @@ if __name__ == "__main__":
         def test_index(self):
             self.assertEqual(self.container1.index(self.field2), 1)
             self.assertEqual(self.container1.index('field1'), 0)
+
+        def test_add_extend(self):
+            tagfield = FieldObject('Tags', filt=True)
+            self.container1.extend(FieldObjectContainer([tagfield]))
+            self.assertEqual(self.container1[-1], tagfield)
+            tmp = self.container2 + FieldObjectContainer([tagfield])
+            self.assertEqual(tmp[-1], tagfield)
+
 
     unittest.main()

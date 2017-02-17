@@ -203,7 +203,6 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         self._dateBetween = True
         self._dateFilterType = self.DayFilter
         self._hideTagged = False
-        self.taggedField = None
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         """ Re-implemented to apply the regular expression filter to all
@@ -324,6 +323,10 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
     @property
     def dateBetween(self):
         return self._dateBetween
+
+    @property
+    def taggedField(self):
+        return self.sourceModel().dataset.taggedField
 
 
 class deleteCmd(QtGui.QUndoCommand):

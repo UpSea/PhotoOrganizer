@@ -1,6 +1,7 @@
 from fieldobjects import FieldObject, FieldObjectContainer
 from collections import MutableSequence
 from datetime import datetime
+import pdb
 
 # Handle python versions
 import sys
@@ -26,7 +27,7 @@ class Photo(dict):
         fields = fields or []
         assert isinstance(fields, (list, FieldObjectContainer))
         assert all([isinstance(k, FieldObject) for k in fields])
-        values = values or [k.type() for k in fields]
+        values = [k.type() for k in fields] if values is None else values
         self.thumb = thumb
         self.tagged = tagged
         assert len(fields) == len(values)
@@ -89,14 +90,20 @@ class Album(MutableSequence):
         assert(isinstance(types, list))
         assert(all([isinstance(k, type) for k in types]))
 
+        self.initializeFields()
+
         # Ensure fieldobj is a FieldObjectContainer
         if isinstance(fields, list):
-            fieldobj = FieldObjectContainer(fields, types)
+            for f, t in zip(fields, types):
+                if f in self.field_names:
+                    raise ValueError('{} is a duplicate field name'.format(f))
+                self._fields.append(FieldObject(f, typ=t))
         else:
-            fieldobj = fields
+            if any([k.name in self.field_names for k in fields]):
+                raise ValueError('Duplicate Field Names')
+            self._fields.extend(fields)
 
-        # Store the fields and initialize entries
-        self._fields = fieldobj
+        # Initialize entries
         self._entries = []
 
         # Create and store the entries
@@ -131,6 +138,35 @@ class Album(MutableSequence):
 
     def append(self, value):
         self._entries.append(value)
+
+    def initializeFields(self):
+        fields = FieldObjectContainer()
+        fdict = [{'name': 'Image', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Tagged', 'required': True,
+                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False,
+                  'filt': True},
+                 {'name': 'File Name', 'required': True, 'editable': False,
+                  'name_editable': False, 'filt': True},
+                 {'name': 'Date', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Import Date', 'required': True, 'editable': False,
+                  'name_editable': False},
+                 {'name': 'Hash', 'required': True, 'editable': False,
+                  'name_editable': False, 'hidden': True},
+                 {'name': 'FileId', 'required': False, 'editable': False,
+                  'name_editable': False, 'hidden': True},
+                 {'name': 'Directory', 'required': True, 'editable': False,
+                  'name_editable': False}]
+        for f in fdict:
+            fields.append(FieldObject(**f))
+        self._defaultFields = fields
+        self._fields = fields
+        self.taggedField = 'Tagged'
+
+    @property
+    def defaultFields(self):
+        return self._defaultFields
 
     @property
     def fields(self):
@@ -177,9 +213,13 @@ if __name__ == "__main__":
     class AlbumTest(unittest.TestCase):
 
         def setUp(self):
+            self.emptyAlbum = Album()
+            emptyvalues = [None]*len(self.emptyAlbum.fields)
+            emptytypes = [str]*len(self.emptyAlbum.fields)
             self.fields = ['int', 'str', 'bool']
-            self.values = [[1, 'a', True], [2, 'b', False]]
-            self.types = [int, str, bool]
+            self.values = [emptyvalues + [1, 'a', True],
+                           emptyvalues + [2, 'b', False]]
+            self.types = emptytypes + [int, str, bool]
             self.Album = Album(self.fields, self.values, self.types)
 
         def test_constructor(self):
@@ -196,7 +236,8 @@ if __name__ == "__main__":
             self.assertEqual(self.Album[1, strField], 'b')
 
         def test_insert(self):
-            photo = Photo(self.Album.fields, [3, 'c', False])
+            emptyvalues = [None]*len(self.emptyAlbum.fields)
+            photo = Photo(self.Album.fields, emptyvalues + [3, 'c', False])
             strField = self.Album.fields['str']
             self.Album.insert(1, photo)
             self.assertEqual(self.Album[1, strField], 'c')

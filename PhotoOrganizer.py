@@ -25,6 +25,7 @@ from PhotoViewer import ImageViewer
 from Dialogs import WarningDialog, warning_box, BatchTag
 from create_database import create_database
 from datetime import datetime
+import pdb
 
 
 class myWindow(QtGui.QMainWindow, uiclassf):
@@ -37,7 +38,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.databaseFile = None
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
-        self.setupFields()
 
         # Setup application organization and application name
         app = QtGui.QApplication.instance()
@@ -56,14 +56,14 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.actionOpenDatabase.setIcon(openicon)
 
         # Instantiate an empty dataset and model
-        self.album = Album(self.fields)
-        self.model = AlbumModel(self.album)
+        self.customFields = FieldObjectContainer([FieldObject('Tags', filt=True)])
+        album = Album(FieldObjectContainer(self.customFields))
+        self.model = AlbumModel(album)
 
         self.model.dataChanged.connect(self.on_dataChanged)
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
-        self.proxy.taggedField = self.taggedField
 
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
@@ -249,8 +249,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             self.labelNoDatabase.setHidden(True)
             self.labelNoPhotos.setHidden(True)
 
-        self.album = Album(self.fields)
-        self.model.changeDataSet(self.album)
+        self.model.changeDataSet(Album(self.customFields))
         self.databaseFile = dbfile
         cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
@@ -375,31 +374,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         checkDate = self.checkDateRange.isChecked()
         self.labelTo.setVisible(checkDate)
         self.dateTo.setVisible(checkDate)
-
-    def setupFields(self):
-        fields = FieldObjectContainer()
-        fdict = [{'name': 'Image', 'required': True, 'editable': False,
-                  'name_editable': False},
-                 {'name': 'Tagged', 'required': True,
-                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False,
-                  'filter': True},
-                 {'name': 'File Name', 'required': True, 'editable': False,
-                  'name_editable': False, 'filter': True},
-                 {'name': 'Date', 'required': True, 'editable': False,
-                  'name_editable': False},
-                 {'name': 'Import Date', 'required': True, 'editable': False,
-                  'name_editable': False},
-                 {'name': 'Hash', 'required': True, 'editable': False,
-                  'name_editable': False, 'hidden': True},
-                 {'name': 'FileId', 'required': False, 'editable': False,
-                  'name_editable': False, 'hidden': True},
-                 {'name': 'Tags', 'filter': True},
-                 {'name': 'Directory', 'required': True, 'editable': False,
-                  'name_editable': False}]
-        for f in fdict:
-            fields.append(FieldObject(**f))
-        self.fields = fields
-        self.taggedField = 'Tagged'
 
     #####################
     #       SLOTS       #
@@ -635,14 +609,15 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         # Create the database and show the main widget
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
         create_database(dbfile)
+
+        # Re-set the dataset
+        self.model.changeDataSet(Album(self.customFields))
+
+        # Store the database and set up window/menus
         self.databaseFile = dbfile
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
-
-        # Re-set the dataset
-        self.album = Album(self.fields)
-        self.model.changeDataSet(self.album)
 
     @QtCore.pyqtSlot()
     def on_openDatabase(self):
@@ -681,6 +656,18 @@ class myWindow(QtGui.QMainWindow, uiclassf):
     #####################
     #     PROPERTIES    #
     #####################
+
+    @property
+    def album(self):
+        return self.model.dataset
+
+    @property
+    def fields(self):
+        return self.album.fields
+
+    @property
+    def field_names(self):
+        return self.album.field_names
 
     @property
     def iconSize(self):
