@@ -86,9 +86,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
-        self.horizontalHeader.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.horizontalHeader.customContextMenuRequested.connect(self.on_headerContext_requested)
-        self.horizontalHeader.setMovable(True)
         self.verticalHeader = self.view.verticalHeader()
 
         # Create the image viewer window
@@ -531,27 +528,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             # Bring it to the front
             self.imageViewer.raise_()
 
-    @QtCore.pyqtSlot(QtCore.QPoint)
-    def on_headerContext_requested(self, point):
-        """Set up context menu for column filter.
-
-        Slot for the horizontal header
-
-        Arguments:
-            point (QPoint): The relative position of the mouse when clicked
-        """
-        logicalIndex = self.horizontalHeader.logicalIndexAt(point)
-        if logicalIndex < 0:
-            return
-        self.logicalIndex = logicalIndex
-        self.menuValues = QtGui.QMenu(self)
-
-        actionSort = QtGui.QAction("Sort", self)
-        actionSort.triggered.connect(self.on_sort_triggered)
-        self.menuValues.addAction(actionSort)
-
-        self.menuValues.exec_(self.horizontalHeader.mapToGlobal(point))
-
     @QtCore.pyqtSlot()
     def on_helpAbout(self):
         """ Create the program about menu and display it """
@@ -644,14 +620,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             size (int): The desired square size of the thumbnail in pixels
         """
         self.setWidthHeight(size)
-
-    @QtCore.pyqtSlot()
-    def on_sort_triggered(self):
-        """Sort by the clicked column"""
-        so = {QtCore.Qt.AscendingOrder: QtCore.Qt.DescendingOrder,
-              QtCore.Qt.DescendingOrder: QtCore.Qt.AscendingOrder}
-        self.view.sortByColumn(self.logicalIndex,
-                               so[self.horizontalHeader.sortIndicatorOrder()])
 
     #####################
     #     PROPERTIES    #

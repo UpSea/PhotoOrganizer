@@ -110,7 +110,7 @@
         </layout>
        </item>
        <item>
-        <widget class="QTableView" name="view"/>
+        <widget class="PhotoTable" name="view"/>
        </item>
        <item>
         <widget class="QLabel" name="labelNoPhotos">
@@ -225,6 +225,13 @@ This may take a while if there are many photos. Watch the status bar below for p
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PhotoTable</class>
+   <extends>QTableView</extends>
+   <header>photo_table</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>view</tabstop>
   <tabstop>dateFrom</tabstop>
