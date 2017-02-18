@@ -1,4 +1,6 @@
 from PyQt4 import QtCore, QtGui
+import os
+import pdb
 
 
 class PhotoTable(QtGui.QTableView):
@@ -22,9 +24,37 @@ class PhotoTable(QtGui.QTableView):
         Arguments:
             event (QContextMenuEvent)
         """
-        index = self.indexAt(event.pos())
-        sindex = self.model().mapToSource(index)
-        print self.model().data(index)
+        self.mouse_point = event.pos()
+        menu = QtGui.QMenu(self)
+        actionOpen = QtGui.QAction('Show in Explorer', self)
+        menu.addAction(actionOpen)
+
+        # Set up the signal mapper
+        sm = QtCore.QSignalMapper(self)
+        sm.mapped[QtCore.QString].connect(self.on_showExplorerMapper)
+
+        # Get the selected rows
+        indexes = [self.model().mapToSource(k) for k in self.selectedIndexes()]
+        rows = set([k.row() for k in indexes])
+
+        # Get the directories
+        album = self.model().sourceModel().dataset
+        directories = set([album[r, 'Directory'] for r in rows])
+
+        # Set up the menu action and signal connection(s)
+        if len(directories) == 1:
+            sm.setMapping(actionOpen, next(iter(directories)))
+            actionOpen.triggered.connect(sm.map)
+        else:
+            dmen = QtGui.QMenu('SubMenu', menu)
+            actionOpen.setMenu(dmen)
+            for d in directories:
+                action = QtGui.QAction(d, dmen)
+                sm.setMapping(action, d)
+                action.triggered.connect(sm.map)
+                dmen.addAction(action)
+
+        menu.exec_(self.mapToGlobal(event.pos()))
 
     @QtCore.pyqtSlot(QtCore.QPoint)
     def on_headerContext_requested(self, point):
@@ -54,6 +84,18 @@ class PhotoTable(QtGui.QTableView):
               QtCore.Qt.DescendingOrder: QtCore.Qt.AscendingOrder}
         self.sortByColumn(self.logicalIndex,
                           so[self.horizontalHeader().sortIndicatorOrder()])
+
+    @QtCore.pyqtSlot(QtCore.QString)
+    def on_showExplorerMapper(self, directory):
+        """ Open the given directory in Windows Explorer
+
+        Slot for the context menu action signal mapper
+
+        Arguments:
+            directory (QString)
+        """
+        os.startfile(directory)
+
 
 if __name__ == "__main__":
     app = QtGui.QApplication([])
