@@ -38,7 +38,7 @@ class PhotoTable(QtGui.QTableView):
         rows = set([k.row() for k in indexes])
 
         # Get the directories
-        album = self.model().sourceModel().dataset
+        album = self.model().dataset
         directories = set([album[r, 'Directory'] for r in rows])
 
         # Set up the menu action and signal connection(s)
@@ -69,13 +69,13 @@ class PhotoTable(QtGui.QTableView):
         if logicalIndex < 0:
             return
         self.logicalIndex = logicalIndex
-        menuValues = QtGui.QMenu(self)
+        menu = QtGui.QMenu(self)
 
         actionSort = QtGui.QAction("Sort", self)
         actionSort.triggered.connect(self.on_sort_triggered)
-        menuValues.addAction(actionSort)
+        menu.addAction(actionSort)
 
-        menuValues.exec_(self.horizontalHeader().mapToGlobal(point))
+        menu.exec_(self.horizontalHeader().mapToGlobal(point))
 
     @QtCore.pyqtSlot()
     def on_sort_triggered(self):

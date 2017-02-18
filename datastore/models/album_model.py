@@ -317,6 +317,10 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         self.invalidate()
 
     @property
+    def dataset(self):
+        return self.sourceModel().dataset
+
+    @property
     def dateFilterType(self):
         return self._dateFilterType
 
