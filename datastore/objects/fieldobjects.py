@@ -91,38 +91,48 @@ class FieldObjectContainer(MutableSequence):
     to be defined within the FieldObjects already and are therefore ignored.
 
     Constructor Arguments:
-        fieldobjs (list[str], list[FieldObj]): ([]) A list of field objects or
+        name (list[str], list[FieldObj]): ([]) A list of field objects or
             field names
-        types (list[type]):  (Optional) A type for each field. Default type is
-            str
-        editable (list[bool]): (True) A list indicating whether each field is
+        required (list[bool]): ([False]) A list indicating whether each field
+            is required
+        editor (list[FieldObject.EditorType]): A list containing the type of
+            editor for each field. Use FieldObject.<editor type>
+        editable (list[bool]): ([True]) A list indicating whether each field is
             editable or not
+        name_editable (list[bool]): ([True]) A list indicating whether each
+            field name is editable
+        hidden (list[bool]): ([False]) A list indicating whether each field is
+            hidden
+        filt (list[bool]): ([False]) A list indicating whether each field
+            should be included in the regex filter
     """
 
-    def __init__(self, fieldobjs=None, required=None, editor=None,
-                 editable=None, name_editable=None, hidden=None, types=None):
-        if fieldobjs is None:
+    def __init__(self, name=None, required=None, editor=None,
+                 editable=None, name_editable=None, hidden=None, typ=None,
+                 filt=None):
+        if name is None:
             self._fieldobjs = []
         else:
             # Make sure all fields are of the same type
             all_objs = [isinstance(k, FieldObject)
-                        for k in fieldobjs]
-            all_str = [isinstance(k, str) for k in fieldobjs]
+                        for k in name]
+            all_str = [isinstance(k, basestring) for k in name]
             if all(all_str):
                 # Create field objects from string inputs
-                nfields = len(fieldobjs)
+                nfields = len(name)
                 editor = editor or [None]*nfields
                 required = required or [False]*nfields
                 editable = editable or [True]*nfields
-                name_editable = name_editable or [True]*len(fieldobjs)
+                name_editable = name_editable or [True]*len(name)
                 hidden = hidden or [False]*nfields
-                types = types or [str]*nfields
-                inputs = zip(fieldobjs, required, editor, editable,
-                             name_editable, hidden, types)
+                types = typ or [str]*nfields
+                filts = filt or [False]*nfields
+                inputs = zip(name, required, editor, editable,
+                             name_editable, hidden, types, filts)
                 self._fieldobjs = [FieldObject(*kwargs) for kwargs in inputs]
             elif all(all_objs):
                 # Store the input list
-                self._fieldobjs = fieldobjs
+                self._fieldobjs = name
             else:
                 raise TypeError('Input fields must all be either '
                                 'FieldObject instances or strings')
@@ -199,6 +209,9 @@ class FieldObjectContainer(MutableSequence):
             return self.names.index(value)
         else:
             return self._fieldobjs.index(value)
+
+    def remove(self, value):
+        self._fieldobjs.remove(value)
 
     @property
     def names(self):

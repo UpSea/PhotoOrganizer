@@ -108,7 +108,6 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
     def closeEvent(self, event):
         """ Re-implemented to save settings """
-
         # Save general App settings
         settings = QtCore.QSettings()
         settings.clear()
@@ -116,11 +115,53 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                           self.saveGeometry()))
         settings.setValue("lastDatabase", QtCore.QVariant(self.databaseFile))
 
-        # Save database-specific settings
-        self.saveAppData()
+        # Close the current album
+        self.closeDatabase()
 
+    def closeDatabase(self):
+        """ Close the current album to prepare to open another """
         # Close child windows
         self.imageViewer.close()
+
+        # Save fields
+        if self.databaseFile is None:
+            return
+
+        field_props = ['Name', 'Required', 'Editor', 'Editable',
+                       'Name_Editable', 'Hidden', 'Filt']
+        props = ', '.join(field_props)
+        i = 'INSERT INTO Fields ({}) VALUES (?,?,?,?,?,?,?)'.format(props)
+        with sqlite(self.databaseFile) as con:
+            cur = con.execute('SELECT Name FROM Fields')
+            dbfields = [k[0] for k in cur]
+            uparams = ', '.join(['{} = ?'.format(k) for k in field_props])
+            u = ('UPDATE Fields SET {} WHERE Name=?'.format(uparams))
+            icommands = []
+            ucommands = []
+            for f in self.fields:
+                values = [f.name, f.required, f.editor, f.editable,
+                          f.name_editable, f.hidden, f.filter]
+                if f.name in dbfields:
+                    ucommands.append(values+[f.name])
+                else:
+                    icommands.append(values)
+            # Execute many for speed
+            if icommands:
+                con.executemany(i, icommands)
+            if ucommands:
+                con.executemany(u, ucommands)
+
+            # Remove deleted fields
+            df = [k for k in dbfields if k not in self.fields.names]
+            dcommands = []
+            for f in df:
+                dcommands.append((f,))
+            if dcommands:
+                con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
+
+        # Save database-specific settings
+        self.saveAppData()
+        self.databaseFile = None
 
     def saveAppData(self):
         """ Save database-specific settings """
@@ -240,19 +281,32 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             msg = 'Database File Not Found'
             warning_box(msg, self)
             return
+
+        # Close the exiting database
+        self.closeDatabase()
+
         # Make sure table is visible
         if self.view.isHidden():
             self.mainWidget.setHidden(False)
             self.view.setHidden(False)
             self.labelNoDatabase.setHidden(True)
             self.labelNoPhotos.setHidden(True)
-
-        self.model.changeDataSet(Album(self.customFields))
         self.databaseFile = dbfile
         cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
         with sqlite(dbfile) as con:
+            # Get the fields
+            cur = con.execute('SELECT Name, Required, Editor, Editable, '+
+                              'Name_Editable, Hidden, Filt FROM Fields')
+            param_values = [list(k) for k in cur]
+            params = [k[0].lower() for k in cur.description]
+            vals = map(list, zip(*param_values))
+            param_dicts = dict(zip(params, vals))
+            fields = FieldObjectContainer(**param_dicts)
+            self.model.changeDataSet(Album(fields))
+
+            # Get the Photos
             cur = con.cursor()
             cur2 = con.cursor()
             cur.execute(cnt)

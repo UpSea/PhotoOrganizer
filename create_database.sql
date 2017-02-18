@@ -29,3 +29,14 @@ DROP TABLE IF EXISTS AppData;
 CREATE TABLE AppData (AppFileVersion TEXT,
                       AlbumTableState BLOB);
 INSERT INTO AppData VALUES (NULL, NULL);
+
+DROP TABLE IF EXISTS Fields;
+CREATE TABLE Fields (FieldId INTEGER PRIMARY KEY AUTOINCREMENT,
+                     Name TEXT,
+                     Required INTEGER,
+                     Editor INTEGER,
+                     Editable INTEGER,
+                     Name_Editable INTEGER,
+                     Hidden INTEGER,
+                     Type TEXT,
+                     Filt INTEGER)

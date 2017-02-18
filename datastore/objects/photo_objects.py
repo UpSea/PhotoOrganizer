@@ -17,8 +17,7 @@ class Photo(dict):
     Arguments:
         fields (list[FieldObject]): (Optional) The fields (column headings)
         values (list[<>]):  (Optional) The values for each field. If provided,
-            it should be the same length as values and its contents should have
-            the type specified by the corresponding FieldObject
+            it should be the same length as values
         thumb (PIL.Image):  (Optional) The thumbnail image
         tagged (bool): Whether or not tagging has been completed
     """
@@ -27,13 +26,10 @@ class Photo(dict):
         fields = fields or []
         assert isinstance(fields, (list, FieldObjectContainer))
         assert all([isinstance(k, FieldObject) for k in fields])
-        values = [k.type() for k in fields] if values is None else values
+        values = ['' for _ in fields] if values is None else values
         self.thumb = thumb
         self.tagged = tagged
         assert len(fields) == len(values)
-
-        # Make sure types match
-#         assert(all([type(v) == f.type for v, f in zip(values, fields)]))
 
         super(Photo, self).__init__(zip(fields, values))
 
@@ -74,33 +70,34 @@ class Album(MutableSequence):
     """A Photo container
 
     Arguments:
-        fields (list[str]):  (Optional) A list of field names
+        fields (list[str], FieldObjectContainer):  (Optional) A list of
+            field names or FieldObjectContainer.
         values (list[list[<>]]: (Optional) A list of lists. Each list is a list
-            of objects of the type() defined by the corresponding field. Each
-            sublist should be the same length as fields. If types is not
-            provided, they must be strings (or will be the str representation
-            of what is given)
-        types (list[type]):  (Optional) The data type for each field
+            of objects. Each sublist should be the same length as fields.
     """
 
-    def __init__(self, fields=None, values=None, types=None):
+    def __init__(self, fields=None, values=None):
         fields = fields or []
         assert isinstance(fields, (list, FieldObjectContainer))
-        types = types or [str]*len(fields)
-        assert(isinstance(types, list))
-        assert(all([isinstance(k, type) for k in types]))
 
         self.initializeFields()
 
         # Ensure fieldobj is a FieldObjectContainer
         if isinstance(fields, list):
-            for f, t in zip(fields, types):
+            for f in fields:
                 if f in self.field_names:
                     raise ValueError('{} is a duplicate field name'.format(f))
-                self._fields.append(FieldObject(f, typ=t))
+                self._fields.append(FieldObject(f))
         else:
-            if any([k.name in self.field_names for k in fields]):
-                raise ValueError('Duplicate Field Names')
+            usedfields = []
+            for f in fields:
+                # Replace existing fields
+                if f.name in self.field_names:
+                    dex = self.field_names.index(f.name)
+                    self.fields[dex] = f
+                    usedfields.append(f)
+            for f in usedfields:
+                fields.remove(f)
             self._fields.extend(fields)
 
         # Initialize entries
@@ -144,8 +141,7 @@ class Album(MutableSequence):
         fdict = [{'name': 'Image', 'required': True, 'editable': False,
                   'name_editable': False},
                  {'name': 'Tagged', 'required': True,
-                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False,
-                  'filt': True},
+                  'editor': FieldObject.CheckBoxEditor, 'name_editable': False},
                  {'name': 'File Name', 'required': True, 'editable': False,
                   'name_editable': False, 'filt': True},
                  {'name': 'Date', 'required': True, 'editable': False,
@@ -215,12 +211,10 @@ if __name__ == "__main__":
         def setUp(self):
             self.emptyAlbum = Album()
             emptyvalues = [None]*len(self.emptyAlbum.fields)
-            emptytypes = [str]*len(self.emptyAlbum.fields)
             self.fields = ['int', 'str', 'bool']
             self.values = [emptyvalues + [1, 'a', True],
                            emptyvalues + [2, 'b', False]]
-            self.types = emptytypes + [int, str, bool]
-            self.Album = Album(self.fields, self.values, self.types)
+            self.Album = Album(self.fields, self.values)
 
         def test_constructor(self):
             Album(self.fields)
@@ -241,5 +235,14 @@ if __name__ == "__main__":
             strField = self.Album.fields['str']
             self.Album.insert(1, photo)
             self.assertEqual(self.Album[1, strField], 'c')
+
+        def test_duplicateField(self):
+            dupfield = [FieldObject('Tagged', editor=3),
+                        FieldObject('Hash', hidden=False),
+                        FieldObject('Tags')]
+            album = Album(FieldObjectContainer(dupfield))
+            self.assertEqual(album.fields['Tagged'].editor, 3)
+            self.assertEqual(album.fields['Hash'].hidden, False)
+            self.assertEqual(album.fields['Tags'].editor, 0)
 
     unittest.main()
