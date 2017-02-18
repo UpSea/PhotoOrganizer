@@ -221,7 +221,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 if (fname, str(hsh)) in exHash:
                     changeDir.append(path)
                     continue
-                date = exif[36867] if exif else "Unknown"
+                # Try to get date from exif
+                if exif and 36867 in exif:
+                    date = exif[36867]
+                else:
+                    # Use modified time (not as reliable)
+                    timestamp = os.path.getmtime(path)
+                    dt = datetime.fromtimestamp(timestamp)
+                    date = dt.strftime('%Y:%m:%d %H:%M:%S')
                 sz = 400
                 im.thumbnail((sz, sz))
                 fp = BytesIO()
