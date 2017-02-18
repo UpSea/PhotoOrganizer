@@ -464,7 +464,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         selection = self.view.selectedIndexes()
         source = [self.proxy.mapToSource(i) for i in selection]
         selectedRows = list(set([k.row() for k in source]))
-        dlg = BatchTag(self)
+        fields = [k.name for k in self.fields if k.editable and
+                  k.editor == FieldObject.LineEditEditor]
+        dlg = BatchTag(fields, self)
         st = dlg.exec_()
         if st == dlg.Rejected:
             return
@@ -472,24 +474,25 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         markTagged = dlg.checkMarkTagged.isChecked()
 
         # Get a list of new tags
-        newTagStr = str(dlg.lineEdit.text())
-        newTags = [k.strip() for k in re.split(';|,', newTagStr)
-                   if k.strip() != '']
-
-        # Apply the new tags, keeping the old
-        for row in selectedRows:
-            # Set tags
-            index = self.model.index(row, self.fields.index('Tags'))
-            oldTagStr = str(index.data().toPyObject())
-            oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
+        for field in fields:
+            newTagStr = str(dlg.edits[field].text())
+            newTags = [k.strip() for k in re.split(';|,', newTagStr)
                        if k.strip() != '']
-            replace = oldTags + [k for k in newTags if k not in oldTags]
-            self.model.setData(index, QtCore.QVariant('; '.join(replace)))
 
-            # Set tagged
-            tIndex = self.model.index(row, self.fields.index('Tagged'))
-            if markTagged:
-                self.model.setData(tIndex, QtCore.QVariant(True))
+            # Apply the new tags, keeping the old
+            for row in selectedRows:
+                # Set tags
+                index = self.model.index(row, self.fields.index(field))
+                oldTagStr = str(index.data().toPyObject())
+                oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
+                           if k.strip() != '']
+                replace = oldTags + [k for k in newTags if k not in oldTags]
+                self.model.setData(index, QtCore.QVariant('; '.join(replace)))
+
+                # Set tagged
+                tIndex = self.model.index(row, self.fields.index('Tagged'))
+                if markTagged:
+                    self.model.setData(tIndex, QtCore.QVariant(True))
 
     @QtCore.pyqtSlot(int)
     def on_checkDateChanged(self, state):

@@ -3,9 +3,13 @@ from UIFiles import Ui_BatchTag as batchTag_form
 
 
 class BatchTag(QtGui.QDialog, batchTag_form):
-    """ A dialog box for adding tags to a batch of photos """
+    """ A dialog box for adding tags to a batch of photos
 
-    def __init__(self, parent=None):
+    Arguments:
+        fields ([str]): (None) A list of field names
+    """
+
+    def __init__(self, fields=None, parent=None):
         super(BatchTag, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Batch Tag')
@@ -17,6 +21,24 @@ class BatchTag(QtGui.QDialog, batchTag_form):
                             QtCore.Qt.WindowCloseButtonHint)
 
         self.label.setText('Add tags separated by , or ;')
+        self.edits = {}
+
+        if fields:
+            map(self.addField, fields)
+
+    def addField(self, name):
+        """ Add a line edit with the given name
+
+        Arguments:
+            name (str): The name of the field
+        """
+        hlayout = QtGui.QHBoxLayout()
+        label = QtGui.QLabel(name)
+        hlayout.addWidget(label)
+        edit = QtGui.QLineEdit()
+        hlayout.addWidget(edit)
+        self.layoutEdits.addLayout(hlayout)
+        self.edits[name] = edit
 
 
 class WarningDialog(QtGui.QDialog):
@@ -88,3 +110,12 @@ def warning_box(msg, parent=None):
     message_box.setText(msg)
     message_box.setIcon(QtGui.QMessageBox.Warning)
     message_box.exec_()
+
+
+if __name__ == "__main__":
+    app = QtGui.QApplication([])
+
+    dlg = BatchTag()
+    dlg.addField('People')
+    dlg.exec_()
+    print dlg.edits['People'].text()
