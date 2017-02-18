@@ -23,19 +23,20 @@ from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
 from Dialogs import WarningDialog, warning_box, BatchTag
+from database import PhotoDatabase
 from create_database import create_database
 from datetime import datetime
 import pdb
 
 
-class myWindow(QtGui.QMainWindow, uiclassf):
+class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    def __init__(self, parent=None):
-        super(myWindow, self).__init__(parent)
+    def __init__(self, dbfile=None, parent=None):
+        super(PhotoOrganizer, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
-        self.databaseFile = None
+        self.db = PhotoDatabase(dbfile)
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
 
@@ -102,7 +103,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         """ Re-implemented to restore window geometry when shown """
         settings = QtCore.QSettings()
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
-        dbfile = settings.value("lastDatabase").toString()
+        dbfile = self.databaseFile or settings.value("lastDatabase").toString()
         if dbfile:
             self.openDatabase(str(dbfile))
 
@@ -131,7 +132,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
                        'Name_Editable', 'Hidden', 'Filt']
         props = ', '.join(field_props)
         i = 'INSERT INTO Fields ({}) VALUES (?,?,?,?,?,?,?)'.format(props)
-        with sqlite(self.databaseFile) as con:
+        with self.db.connect() as con:
             cur = con.execute('SELECT Name FROM Fields')
             dbfields = [k[0] for k in cur]
             uparams = ', '.join(['{} = ?'.format(k) for k in field_props])
@@ -161,7 +162,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
 
         # Save database-specific settings
         self.saveAppData()
-        self.databaseFile = None
+        self.db.setDatabaseFile(None)
 
     def saveAppData(self):
         """ Save database-specific settings """
@@ -291,11 +292,11 @@ class myWindow(QtGui.QMainWindow, uiclassf):
             self.view.setHidden(False)
             self.labelNoDatabase.setHidden(True)
             self.labelNoPhotos.setHidden(True)
-        self.databaseFile = dbfile
+        self.db.setDatabaseFile(dbfile)
         cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
-        with sqlite(dbfile) as con:
+        with self.db.connect() as con:
             # Get the fields
             cur = con.execute('SELECT Name, Required, Editor, Editable, '+
                               'Name_Editable, Hidden, Filt FROM Fields')
@@ -510,14 +511,14 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         if topLeft.column() == self.fields.index('Tagged'):
             value = topLeft.data().toBool()
             q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
-            with sqlite(self.databaseFile) as con:
+            with self.db.connect() as con:
                 cur = con.cursor()
                 cur.execute(q, (1 if value else 0, fileId))
         elif topLeft.column() == self.fields.index('Tags'):
             # Get the new locations
             new_locs = [k.strip() for k in re.split(';|,', str(topLeft.data().toPyObject()))
                         if k.strip() != '']
-            with sqlite(self.databaseFile) as con:
+            with self.db.connect() as con:
                 cur = con.cursor()
                 cur.execute('SELECT LocId, Location FROM Locations')
                 existing = {k[1].lower(): k[0] for k in cur.fetchall()}
@@ -646,7 +647,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.model.changeDataSet(Album(self.customFields))
 
         # Store the database and set up window/menus
-        self.databaseFile = dbfile
+        self.db.setDatabaseFile(dbfile)
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
@@ -687,6 +688,10 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         return self.model.dataset
 
     @property
+    def databaseFile(self):
+        return self.db.dbfile
+
+    @property
     def fields(self):
         return self.album.fields
 
@@ -710,7 +715,8 @@ if __name__ == "__main__":
     import sys
 
     app = QtGui.QApplication(sys.argv)
-    main = myWindow()
+    main = PhotoOrganizer()
+#     main = PhotoOrganizer('TestDb2.db')
     main.resize(800, 600)
     main.show()
 
