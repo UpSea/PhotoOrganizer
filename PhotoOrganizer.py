@@ -97,6 +97,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Setup the date filters
         self.comboDateFilter.addItems(['Year', 'Month', 'Day'])
+        self.comboDateFilter.setCurrentIndex(1)
         self.on_comboDate(self.proxy.MonthFilter)
         self.checkDateRange.setChecked(True)
         self.on_checkDateChanged(QtCore.Qt.Checked)
