@@ -23,7 +23,8 @@ def add_folder(datas, folder, exe_root):
                 local_path = os.path.join(r, f)
                 datas += [(exe_path, local_path, 'DATA')]
 
-add_folder(a.datas, 'icons', 'icons')          
+add_folder(a.datas, 'icons', 'icons') 
+a.datas += [('create_database.sql', 'create_database.sql', 'DATA')]         
           
 coll = COLLECT(exe,
                a.binaries,
