@@ -87,7 +87,41 @@ class PhotoTable(QtGui.QTableView):
         actionSort.triggered.connect(self.on_sort_triggered)
         menu.addAction(actionSort)
 
+        menu.addSeparator()
+
+        # Add the hide field action
+        actionHide = QtGui.QAction('Hide Field(s)', self)
+        actionHide.triggered.connect(self.on_hideField)
+        menu.addAction(actionHide)
+
+        # Add the unhide menu
+        hiddenFields = [k.name for k in
+                        self.model().dataset.fields if k.hidden]
+        if hiddenFields:
+            # Initialize signal mapper
+            sm = QtCore.QSignalMapper(self)
+            sm.mapped[QtCore.QString].connect(self.on_unhide)
+
+            # Create the parent action
+            unhideAction = QtGui.QAction("Unhide", menu)
+            menu.addAction(unhideAction)
+            hmenu = QtGui.QMenu('HiddenFields', self)
+            unhideAction.setMenu(hmenu)
+
+            # Add the submenu actions
+            for h in hiddenFields:
+                a = QtGui.QAction(h, hmenu)
+                sm.setMapping(a, h)
+                a.triggered.connect(sm.map)
+                hmenu.addAction(a)
+
         menu.exec_(self.horizontalHeader().mapToGlobal(point))
+
+    @QtCore.pyqtSlot()
+    def on_hideField(self):
+        """ Hide the selected columns """
+        self.horizontalHeader().setSectionHidden(self.logicalIndex, True)
+        self.model().dataset.fields[self.logicalIndex].hidden = True
 
     @QtCore.pyqtSlot()
     def on_sort_triggered(self):
@@ -107,6 +141,20 @@ class PhotoTable(QtGui.QTableView):
             directory (QString)
         """
         os.startfile(directory)
+
+    @QtCore.pyqtSlot(QtCore.QString)
+    def on_unhide(self, fieldname):
+        """ Unhide the given field
+
+        Slot for unhide signal mapper
+
+        Arguments:
+            fieldname (QString)
+        """
+        album = self.model().dataset
+        coldex = album.fields.index(str(fieldname))
+        self.horizontalHeader().setSectionHidden(coldex, False)
+        album.fields[coldex].hidden = False
 
 
 if __name__ == "__main__":
