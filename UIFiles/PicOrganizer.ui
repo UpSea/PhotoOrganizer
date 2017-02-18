@@ -157,6 +157,8 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionNewDatabase"/>
     <addaction name="actionOpenDatabase"/>
     <addaction name="actionImportFolder"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuOrganize">
     <property name="title">
@@ -164,6 +166,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     </property>
     <addaction name="actionBatchTag"/>
     <addaction name="actionHideTagged"/>
+    <addaction name="actionNewField"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -224,6 +227,22 @@ This may take a while if there are many photos. Watch the status bar below for p
     <string>Hide Tagged Photos</string>
    </property>
   </action>
+  <action name="actionNewField">
+   <property name="text">
+    <string>New Tag Field</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Q</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -237,5 +256,22 @@ This may take a while if there are many photos. Watch the status bar below for p
   <tabstop>dateFrom</tabstop>
  </tabstops>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>actionExit</sender>
+   <signal>triggered()</signal>
+   <receiver>PicOrganizer</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

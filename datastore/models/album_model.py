@@ -46,14 +46,20 @@ class AlbumModel(QtCore.QAbstractTableModel):
             return QtCore.QVariant()
 
     def insertColumns(self, position=None, columns=0,
-                      index=QtCore.QModelIndex(), name=None, copyof=None):
-        """ Model required function for inserting columns """
+                      index=QtCore.QModelIndex(), name=None):
+        """ Model required function for inserting columns
+
+        Arguments:
+            position (int):
+            columns (int):
+            index (QModelIndex):
+            name (str, FieldObject):
+        """
         if (position is None) or (position == -1):
             position = self.columnCount()
         self.beginInsertColumns(index, position, position + columns)
-        self.dataset.insertField(position, name, copyof=copyof)
+        self.dataset.insertField(position, name)
         self.endInsertColumns()
-        self.dirty.emit()
         return True
 
     def removeColumns(self, position, columns=0, index=model_idx(),

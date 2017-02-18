@@ -31,7 +31,7 @@ class FieldObject(object):
     DateEditEditor = 3
 
     def __init__(self, name, required=False, editor=LineEditEditor,
-                 editable=True, name_editable=True, hidden=False, typ=str,
+                 editable=True, name_editable=True, hidden=False,
                  filt=False):
         self._name = name
         self.required = required
@@ -39,7 +39,6 @@ class FieldObject(object):
         self._editable = editable
         self._hidden = hidden
         self.name_editable = name_editable
-        self.type = typ
         self.filter = filt
 
     def __repr__(self):
@@ -107,8 +106,11 @@ class FieldObjectContainer(MutableSequence):
             should be included in the regex filter
     """
 
+    fieldProps = ['Name', 'Required', 'Editor', 'Editable',
+                  'Name_Editable', 'Hidden', 'Filt']
+
     def __init__(self, name=None, required=None, editor=None,
-                 editable=None, name_editable=None, hidden=None, typ=None,
+                 editable=None, name_editable=None, hidden=None,
                  filt=None):
         if name is None:
             self._fieldobjs = []
@@ -125,10 +127,9 @@ class FieldObjectContainer(MutableSequence):
                 editable = editable or [True]*nfields
                 name_editable = name_editable or [True]*len(name)
                 hidden = hidden or [False]*nfields
-                types = typ or [str]*nfields
                 filts = filt or [False]*nfields
                 inputs = zip(name, required, editor, editable,
-                             name_editable, hidden, types, filts)
+                             name_editable, hidden, filts)
                 self._fieldobjs = [FieldObject(*kwargs) for kwargs in inputs]
             elif all(all_objs):
                 # Store the input list
@@ -205,7 +206,7 @@ class FieldObjectContainer(MutableSequence):
          Argument:
              index (str, FieldObject)
          """
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             return self.names.index(value)
         else:
             return self._fieldobjs.index(value)

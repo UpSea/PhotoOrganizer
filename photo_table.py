@@ -10,6 +10,8 @@ class PhotoTable(QtGui.QTableView):
     and manipulating the photos and their tags
     """
 
+    newFieldSig = QtCore.pyqtSignal()
+
     def __init__(self, parent=None):
         super(PhotoTable, self).__init__(parent)
 
@@ -88,6 +90,11 @@ class PhotoTable(QtGui.QTableView):
         menu.addAction(actionSort)
 
         menu.addSeparator()
+
+        # Add new field action
+        actionNewField = QtGui.QAction('New Field', menu)
+        actionNewField.triggered.connect(self.newFieldSig.emit)
+        menu.addAction(actionNewField)
 
         # Add the hide field action
         actionHide = QtGui.QAction('Hide Field(s)', self)

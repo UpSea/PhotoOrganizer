@@ -57,8 +57,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionOpenDatabase.setIcon(openicon)
 
         # Instantiate an empty dataset and model
-        self.customFields = FieldObjectContainer([FieldObject('Tags', filt=True)])
-        album = Album(FieldObjectContainer(self.customFields))
+        album = Album()
         self.model = AlbumModel(album)
 
         self.model.dataChanged.connect(self.on_dataChanged)
@@ -85,6 +84,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.checkDateRange.stateChanged.connect(self.on_checkDateChanged)
         self.comboDateFilter.currentIndexChanged[int].connect(self.on_comboDate)
         self.actionHideTagged.toggled.connect(self.proxy.on_hideTagged)
+        self.view.newFieldSig.connect(self.on_newField)
+        self.actionNewField.triggered.connect(self.on_newField)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -105,7 +106,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
         dbfile = self.databaseFile or settings.value("lastDatabase").toString()
         if dbfile:
-            self.openDatabase(str(dbfile))
+            self.openDatabase(str(dbfile), False)
 
     def closeEvent(self, event):
         """ Re-implemented to save settings """
@@ -128,8 +129,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         if self.databaseFile is None:
             return
 
-        field_props = ['Name', 'Required', 'Editor', 'Editable',
-                       'Name_Editable', 'Hidden', 'Filt']
+        field_props = FieldObjectContainer.fieldProps
         props = ', '.join(field_props)
         i = 'INSERT INTO Fields ({}) VALUES (?,?,?,?,?,?,?)'.format(props)
         with self.db.connect() as con:
@@ -272,7 +272,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         self.setWidthHeight()
 
-    def openDatabase(self, dbfile):
+    def openDatabase(self, dbfile, close=False):
         """ Open a database file and populate the album table
 
         Arguments:
@@ -284,7 +284,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             return
 
         # Close the exiting database
-        self.closeDatabase()
+        if close:
+            self.closeDatabase()
 
         # Make sure table is visible
         if self.view.isHidden():
@@ -292,12 +293,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             self.view.setHidden(False)
             self.labelNoDatabase.setHidden(True)
             self.labelNoPhotos.setHidden(True)
+        # Set up the PhotoDatabase instance
         self.db.setDatabaseFile(dbfile)
+        # Create the query strings
         cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
         with self.db.connect() as con:
-            # Get the fields
+            # Get the fields and create the new Album instance
             cur = con.execute('SELECT Name, Required, Editor, Editable, '+
                               'Name_Editable, Hidden, Filt FROM Fields')
             param_values = [list(k) for k in cur]
@@ -307,14 +310,23 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             fields = FieldObjectContainer(**param_dicts)
             self.model.changeDataSet(Album(fields))
 
-            # Get the Photos
-            cur = con.cursor()
+            # Define the tag query string
+            tqry = 'SELECT t.Value FROM File as f '+\
+                   'JOIN TagMap as tm ON f.FilId == tm.FilId '+\
+                   'JOIN Tags as t ON tm.TagId == t.TagId '+\
+                   'JOIN Categories as c ON t.CatId == c.CatId '+\
+                   'WHERE f.FilId == ? and c.Name == ?'
+
+            # Get the categories and their fields
+            categories = self.db.getTableAsDict('Categories', onePer=True)
+
+            # Get the Photos and populate the Album
             cur2 = con.cursor()
             cur.execute(cnt)
             count = cur.fetchone()[0]
-            cur.execute(qry)
+            fileCur = con.execute(qry)
             k = 0
-            for row in cur:
+            for row in fileCur:
                 k += 1
                 directory = row[0]
                 fname = row[1]
@@ -325,13 +337,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 tagged = bool(row[6])
                 insertDate = row[7]
                 fp = BytesIO(data)
-
-                lqry = 'SELECT l.location FROM File as f '+\
-                       'JOIN FileLoc as fl ON f.FilId == fl.FilId '+\
-                       'JOIN Locations as l ON fl.LocId == l.LocId '+\
-                       'WHERE f.FilId == ?'
-                cur2.execute(lqry, [fileId])
-                location = '; '.join([l[0] for l in cur2.fetchall()])
 
                 # Create the QPixmap from the byte array
                 pix = QtGui.QPixmap()
@@ -350,7 +355,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 updateValues(values, 'FileId', fileId)
                 updateValues(values, 'Tagged', tagged)
                 updateValues(values, 'Import Date', insertDate)
-                updateValues(values, 'Tags', location)
+
+                for cat in categories:
+                    # Get the tags and group with categories
+                    catname = cat['Name']
+                    cur2.execute(tqry, [fileId, catname])
+                    tagList = cur2.fetchall()
+                    tags = '; '.join([t[0] for t in tagList])
+                    updateValues(values, catname, tags)
 
                 self.model.insertRows(self.model.rowCount(), 0,
                                       Photo(self.fields, values, thumb))
@@ -376,6 +388,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.saveAppData()
         self.setWidgetVisibility()
         self.view.rehideColumns()
+        self.updateWindowTitle()
 
     ######################
     #  Helper Functions  #
@@ -428,6 +441,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         checkDate = self.checkDateRange.isChecked()
         self.labelTo.setVisible(checkDate)
         self.dateTo.setVisible(checkDate)
+
+    def updateWindowTitle(self):
+        """ Set the window title """
+        if self.databaseFile:
+            with sqlite(self.databaseFile) as con:
+                cur = con.execute('SELECT Name from Database')
+                name = os.path.splitext(cur.fetchone()[0])[0]
+                self.setWindowTitle('Photo Organizer - {}'.format(name))
 
     #####################
     #       SLOTS       #
@@ -508,46 +529,58 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         col = self.fields.index('FileId')
         row = topLeft.row()
         fileId = self.model.data(self.model.index(row, col)).toInt()[0]
-        if topLeft.column() == self.fields.index('Tagged'):
+
+        field = self.fields[topLeft.column()]
+        if field.name == self.album.taggedField:
             value = topLeft.data().toBool()
             q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
             with self.db.connect() as con:
                 cur = con.cursor()
                 cur.execute(q, (1 if value else 0, fileId))
-        elif topLeft.column() == self.fields.index('Tags'):
-            # Get the new locations
-            new_locs = [k.strip() for k in re.split(';|,', str(topLeft.data().toPyObject()))
-                        if k.strip() != '']
+        else:
+            # Handle "Category" fields
             with self.db.connect() as con:
-                cur = con.cursor()
-                cur.execute('SELECT LocId, Location FROM Locations')
+                q = 'SELECT CatId from Categories WHERE Name == ?'
+                cur = con.execute(q, (field.name,))
+                res = cur.fetchall()
+                if not res:
+                    # Not a "category" field
+                    return
+                catId = res[0][0]
+
+                # Get the new tags
+                new_tags = [k.strip() for k in
+                            re.split(';|,', str(topLeft.data().toPyObject()))
+                            if k.strip() != '']
+                q = 'SELECT TagId, Value FROM Tags WHERE CatId == ?'
+                cur = con.execute(q, (catId,))
                 existing = {k[1].lower(): k[0] for k in cur.fetchall()}
-                for new_loc in new_locs:
-                    if new_loc.strip() == '':
+                for new_tag in new_tags:
+                    if new_tag.strip() == '':
                         continue
-                    if new_loc.lower() not in existing:
-                        # INSERT new location
-                        q = 'INSERT OR IGNORE INTO Locations (Location) VALUES (?)'
-                        cur.execute(q, [new_loc])
-                        locId = cur.lastrowid
+                    if new_tag.lower() not in existing:
+                        # INSERT new tag
+                        q = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
+                        cur.execute(q, [catId, new_tag])
+                        tagId = cur.lastrowid
                     else:
-                        locId = existing[new_loc.lower()]
+                        tagId = existing[new_tag.lower()]
 
                     # Insert FileLoc mapping (ON CONFLICT IGNORE)
-                    q = 'INSERT OR IGNORE INTO FileLoc (FilId, LocId) VALUES (?,?)'
-                    cur.execute(q, [fileId, locId])
+                    q = 'INSERT OR IGNORE INTO TagMap (FilId, TagId) VALUES (?,?)'
+                    cur.execute(q, [fileId, tagId])
 
                 # Remove deleted locations
-                loc_literals = ['?'] * len(new_locs)
-                params = ','.join(loc_literals)
-                q = "DELETE From FileLoc WHERE FilId == ? AND "+\
-                    "(SELECT Location FROM Locations as l WHERE "+\
-                    "l.LocId == FileLoc.LocId) NOT IN ({})".format(params)
-                cur.execute(q, [fileId] + new_locs)
+                params = ','.join(['?'] * len(new_tags))
+                q = "DELETE From TagMap WHERE FilId == ? AND "+\
+                    "(SELECT Value FROM Tags as t WHERE "+\
+                    "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
+                    "NOT IN ({})".format(params)
+                cur.execute(q, [fileId, catId] + new_tags)
 
                 # Remove them unused tags
-                q = 'DELETE FROM Locations WHERE LocId NOT IN '+\
-                    '(SELECT LocId FROM FileLoc)'
+                q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
+                    '(SELECT TagId FROM TagMap)'
                 cur.execute(q)
         self.proxy.invalidate()
 
@@ -644,7 +677,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         create_database(dbfile)
 
         # Re-set the dataset
-        self.model.changeDataSet(Album(self.customFields))
+        self.model.changeDataSet(Album())
 
         # Store the database and set up window/menus
         self.db.setDatabaseFile(dbfile)
@@ -652,6 +685,17 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
         self.view.rehideColumns()
+
+    @QtCore.pyqtSlot()
+    def on_newField(self):
+        """ Add a new field to the database and table """
+        name = QtGui.QInputDialog.getText(self, 'New Field', 'Field Name')[0]
+        if not name:
+            return
+        self.model.insertColumns(name=str(name))
+        newfield = self.fields[-1]
+        newfield.filter = True
+        self.db.insertField(newfield)
 
     @QtCore.pyqtSlot()
     def on_openDatabase(self):

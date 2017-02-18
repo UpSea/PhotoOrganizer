@@ -8,6 +8,7 @@ def create_database(dbfile):
         with open('create_database.sql', 'r') as fid:
             script = fid.read()
         cur.executescript(script)
+        cur.execute('UPDATE Database SET Name = ?', (dbfile,))
 
 if __name__ == "__main__":
     dbfile = 'TestDb2.db'
