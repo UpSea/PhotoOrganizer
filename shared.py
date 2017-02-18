@@ -2,7 +2,7 @@ import os
 import sys
 
 
-__release__ = '0.2.0'
+__release__ = '0.2.1(in-progress)'
 
 organization = "McNinch Custom"
 application = "PhotoOrganizer"

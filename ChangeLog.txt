@@ -1,0 +1,9 @@
+v0.2.0: Added custom fields
+Features:
+-Add custom fields for tags
+-Context menu for table with Batch Tag and Show in Explorer
+-Hide and unhide columns
+
+v0.1.0: First release for demonstration
+
+

@@ -12,7 +12,7 @@ from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
 from shared import resource_path, __release__, organization, application
 import platform
-import os.path
+import os
 from glob import glob
 from PIL import Image
 from io import BytesIO
@@ -88,6 +88,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionHideTagged.toggled.connect(self.proxy.on_hideTagged)
         self.view.newFieldSig.connect(self.on_newField)
         self.actionNewField.triggered.connect(self.on_newField)
+        self.actionChangeLog.triggered.connect(self.on_changeLog)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -301,7 +302,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 version = con.execute(q).fetchone()[0]
             except:
                 version = 0
-            if compareRelease(version, __release__) < 0:
+            if compareRelease(version, '0.2') < 0:
                 warning_box('This version of Photo Organizer is not ' +
                             'compatible with the database you chose.', self)
                 return
@@ -513,6 +514,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 tIndex = self.model.index(row, self.fields.index('Tagged'))
                 if markTagged:
                     self.model.setData(tIndex, QtCore.QVariant(True))
+
+    @QtCore.pyqtSlot()
+    def on_changeLog(self):
+        os.startfile('ChangeLog.txt')
 
     @QtCore.pyqtSlot(int)
     def on_checkDateChanged(self, state):

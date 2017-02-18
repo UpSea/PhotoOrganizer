@@ -13,7 +13,7 @@ exe = EXE(pyz,
           strip=None,
           upx=True,
           console=True )
-          
+
 #### USER ADDED #####
 def add_folder(datas, folder, exe_root):
     for r, d, files in os.walk(folder):
@@ -23,9 +23,10 @@ def add_folder(datas, folder, exe_root):
                 local_path = os.path.join(r, f)
                 datas += [(exe_path, local_path, 'DATA')]
 
-add_folder(a.datas, 'icons', 'icons') 
-a.datas += [('create_database.sql', 'create_database.sql', 'DATA')]         
-          
+add_folder(a.datas, 'icons', 'icons')
+a.datas += [('create_database.sql', 'create_database.sql', 'DATA')]
+a.datas += [('ChangeLog.txt', 'ChangeLog.txt', 'DATA')]
+
 coll = COLLECT(exe,
                a.binaries,
                a.zipfiles,
