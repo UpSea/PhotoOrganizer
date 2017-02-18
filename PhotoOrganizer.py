@@ -78,6 +78,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
         self.actionBatchTag.triggered.connect(self.on_actionBatchTag)
+        self.view.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.actionAbout.triggered.connect(self.on_helpAbout)
         self.dateFrom.dateChanged.connect(self.proxy.setFromDate)
         self.dateTo.dateChanged.connect(self.proxy.setToDate)

@@ -20,6 +20,9 @@ class PhotoTable(QtGui.QTableView):
         self.horizontalHeader().customContextMenuRequested.connect(self.on_headerContext_requested)
         self.horizontalHeader().setMovable(True)
 
+        # Add the batch tag action
+        self.actionBatchTag = QtGui.QAction('Batch Tag', self)
+
     def contextMenuEvent(self, event):
         """ Reimplemented context menu event handler
 
@@ -28,6 +31,8 @@ class PhotoTable(QtGui.QTableView):
         """
         self.mouse_point = event.pos()
         menu = QtGui.QMenu(self)
+
+        # Add the open in explorer action
         actionOpen = QtGui.QAction('Show in Explorer', self)
         menu.addAction(actionOpen)
 
@@ -55,6 +60,9 @@ class PhotoTable(QtGui.QTableView):
                 sm.setMapping(action, d)
                 action.triggered.connect(sm.map)
                 dmen.addAction(action)
+
+        # Add the batch tag action
+        menu.addAction(self.actionBatchTag)
 
         menu.exec_(self.mapToGlobal(event.pos()))
 
