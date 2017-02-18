@@ -69,6 +69,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.view.setModel(self.proxy)
         self.view.setSortingEnabled(True)
         self.view.setItemDelegate(AlbumDelegate())
+        self.view.rehideColumns()
 
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
@@ -319,6 +320,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.setDateRange()
         self.saveAppData()
         self.setWidgetVisibility()
+        self.view.rehideColumns()
 
     ######################
     #  Helper Functions  #
@@ -594,6 +596,7 @@ class myWindow(QtGui.QMainWindow, uiclassf):
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
+        self.view.rehideColumns()
 
     @QtCore.pyqtSlot()
     def on_openDatabase(self):

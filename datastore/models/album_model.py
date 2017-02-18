@@ -247,18 +247,6 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
                 return True
         return False
 
-    def filterAcceptsColumn(self, sourceCol, sourceParent):
-        """ Re-implemented to filter out hidden columns
-
-        Arguments:
-            sourceCol (int): The column in question
-            sourceParent (QModelIndex): The index of the columns's parent.
-        """
-        sourceModel = self.sourceModel()
-        if sourceModel.dataset.fields[sourceCol].hidden:
-            return False
-        return True
-
     def roundDate(self, date):
         """ Truncate the date to the year/month/day per dateFilterType
 

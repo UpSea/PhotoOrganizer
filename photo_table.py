@@ -56,6 +56,18 @@ class PhotoTable(QtGui.QTableView):
 
         menu.exec_(self.mapToGlobal(event.pos()))
 
+    def rehideColumns(self):
+        """ Hide/Unhide columns based on field's hidden property """
+        # Get the hidden property for each field
+        fields = self.model().sourceModel().dataset.fields
+        hide = [k.hidden for k in fields]
+
+        # Use header's setSectionHidden. Hopefully this won't go wonky randomly
+        # when proxy model is invalidated
+        hh = self.horizontalHeader()
+        for k, v in enumerate(hide):
+            hh.setSectionHidden(k, v)
+
     @QtCore.pyqtSlot(QtCore.QPoint)
     def on_headerContext_requested(self, point):
         """Set up context menu for column filter.
