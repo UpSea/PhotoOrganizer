@@ -27,6 +27,7 @@ from database import PhotoDatabase
 from create_database import create_database
 from datetime import datetime
 import pdb
+from pkg_resources import parse_version
 
 
 class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
@@ -170,7 +171,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Save database-specific settings """
         if self.databaseFile is None:
             return
-        with sqlite(self.databaseFile) as con:
+        with self.db.connect() as con:
             cur = con.cursor()
             q = ('UPDATE AppData SET AppFileVersion=?, AlbumTableState=?')
             headerState = sqlite3.Binary(self.horizontalHeader.saveState())
@@ -285,23 +286,40 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             warning_box(msg, self)
             return
 
-        # Close the exiting database
-        if close:
-            self.closeDatabase()
-
-        # Make sure table is visible
-        if self.view.isHidden():
-            self.mainWidget.setHidden(False)
-            self.view.setHidden(False)
-            self.labelNoDatabase.setHidden(True)
-            self.labelNoPhotos.setHidden(True)
-        # Set up the PhotoDatabase instance
-        self.db.setDatabaseFile(dbfile)
         # Create the query strings
         cnt = 'SELECT count(*) FROM File'
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
-        with self.db.connect() as con:
+        try:
+            con = self.db.connect(dbfile)
+        except:
+            warning_box('Cannot open {}'.format(self.databaseFile), self)
+
+        with con:
+            q = 'SELECT AppFileVersion FROM AppData'
+            try:
+                version = con.execute(q).fetchone()[0]
+            except:
+                version = 0
+            if compareRelease(version, __release__) < 0:
+                warning_box('This version of Photo Organizer is not ' +
+                            'compatible with the database you chose.', self)
+                return
+
+            # Close the exiting database
+            if close:
+                self.closeDatabase()
+
+            # Make sure table is visible
+            if self.view.isHidden():
+                self.mainWidget.setHidden(False)
+                self.view.setHidden(False)
+                self.labelNoDatabase.setHidden(True)
+                self.labelNoPhotos.setHidden(True)
+
+            # Set up the PhotoDatabase instance
+            self.db.setDatabaseFile(dbfile)
+
             # Get the fields and create the new Album instance
             cur = con.execute('SELECT Name, Required, Editor, Editable, '+
                               'Name_Editable, Hidden, Filt FROM Fields')
@@ -447,7 +465,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     def updateWindowTitle(self):
         """ Set the window title """
         if self.databaseFile:
-            with sqlite(self.databaseFile) as con:
+            with self.db.connect() as con:
                 cur = con.execute('SELECT Name from Database')
                 name = os.path.splitext(cur.fetchone()[0])[0]
                 self.setWindowTitle('Photo Organizer - {}'.format(name))
@@ -754,10 +772,17 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         return max(size.width(), size.height())
 
 
-def sqlite(dbfile):
-    con = sqlite3.connect(dbfile)
-    con.execute('pragma foreign_keys = 1')
-    return con
+def compareRelease(a, b):
+    """Compares two release numbers. Returns 0 if versions are the same, -1 if
+    the a is older than b and 1 if a is newer than b"""
+    a = parse_version(re.sub('\(.*?\)', '', a))
+    b = parse_version(re.sub('\(.*?\)', '', b))
+    if a < b:
+        return -1
+    elif a == b:
+        return 0
+    else:
+        return 1
 
 
 if __name__ == "__main__":

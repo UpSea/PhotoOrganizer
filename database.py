@@ -13,9 +13,10 @@ class PhotoDatabase(object):
     def __init__(self, dbfile=None):
         self.setDatabaseFile(dbfile)
 
-    def connect(self):
+    def connect(self, dbfile=None):
         """ Create a database connection """
-        con = sqlite3.connect(self.dbfile)
+        dbfile = dbfile or self.dbfile
+        con = sqlite3.connect(dbfile)
         con.execute('pragma foreign_keys = 1')
         return con
 
