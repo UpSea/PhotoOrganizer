@@ -510,8 +510,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         newTags = {}
         for field in fields:
             newTagStr = str(dlg.edits[field].text())
-            newTags[field] = [k.strip() for k in re.split(';|,', newTagStr)
-                              if k.strip() != '']
+            if newTagStr:
+                newTags[field] = [k.strip() for k in re.split(';|,', newTagStr)
+                                  if k.strip() != '']
 
         if markTagged:
             newTags[self.album.taggedField] = QtCore.QVariant(True)
@@ -612,8 +613,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                     # Skip any field that isn't a tag category
                     if col not in catCols:
                         # Not a "category" field
-                        print('Not currently equipped to set this data')
-                        return
+                        continue
                     catDex = catCols.index(col)
                     catId = catIds[catDex]
 
