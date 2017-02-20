@@ -91,7 +91,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.newFieldSig.connect(self.on_newField)
         self.actionNewField.triggered.connect(self.on_newField)
         self.actionChangeLog.triggered.connect(self.on_changeLog)
-        self.groupDateFilter.clicked.connect(self.proxy.setDateFilterStatus)
+        self.groupDateFilter.toggled.connect(self.proxy.setDateFilterStatus)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -286,7 +286,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             dlg.exec_()
 
         self.setWidthHeight()
-        self.setDateRange()
+        self.clearFilters()
 
     def openDatabase(self, dbfile, close=False):
         """ Open a database file and populate the album table
@@ -426,6 +426,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     ######################
     #  Helper Functions  #
     ######################
+
+    def clearFilters(self):
+        self.groupDateFilter.setChecked(False)
+        self.lineEdit.clear()
 
     def setFilter(self, pattern=None, column=None):
         """Set the table filter
