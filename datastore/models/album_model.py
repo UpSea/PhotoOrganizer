@@ -9,12 +9,7 @@ model_idx = QtCore.QModelIndex
 
 
 class AlbumModel(QtCore.QAbstractTableModel):
-
-    """
-    Model who's dataset is a TabularFieldEntryList
-    """
-
-    dirty = QtCore.pyqtSignal()
+    """ A model for an Album table view """
 
     def __init__(self, dataset, parent=None):
         """ Initialize Model """
@@ -80,7 +75,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
             self.beginRemoveColumns(index, position, position + columns)
             self.dataset.removeField(position, force)
             self.endRemoveColumns()
-            self.dirty.emit()
             return True
 
     def removeField(self, field, force=False):
@@ -99,7 +93,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         else:
             self.dataset.addEntry(uuid=uuid)
         self.endInsertRows()
-        self.dirty.emit()
         return True
 
     def removeRows(self, position, rows=0, index=model_idx()):
@@ -107,7 +100,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows)
         self.dataset.removeEntry(position)
         self.endRemoveRows()
-        self.dirty.emit()
         return True
 
     def deleteCells(self, indexes):
@@ -115,33 +107,83 @@ class AlbumModel(QtCore.QAbstractTableModel):
         command = deleteCmd(self, indexes)
         self.undoStack.push(command)
 
+    def _getSetValue(self, field, value):
+        """ Get the appropriate value for setting data
+
+        Arguments:
+            field (FieldObject)
+            value (QVariant)
+        """
+        if field.editor == field.CheckBoxEditor:
+            cvalue = value.toBool()
+        elif field.editor == field.DateEditEditor:
+            if value.type() in (value.Date, value.DateTime):
+                cvalue = str(value.toPyObject().toString('yyyy-MM-dd'))
+            else:
+                # Throw out any value that doesn't match the format
+                try:
+                    cvalue = str(value.toString())
+                    datetime.strptime(cvalue, '%Y-%m-%d')
+                except ValueError:
+                    cvalue = ''
+        else:
+            cvalue = str(value.toString())
+        return cvalue
+
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         """ Model required function that sets data changes passed to model """
         row = index.row()
         field = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
         if field and index.isValid():
             field = self.dataset.fields[index.column()]
-            if field.editor == field.CheckBoxEditor:
-                cvalue = value.toBool()
-            elif field.editor == field.DateEditEditor:
-                if value.type() in (value.Date, value.DateTime):
-                    cvalue = str(value.toPyObject().toString('yyyy-MM-dd'))
-                else:
-                    # Throw out any value that doesn't match the format
-                    try:
-                        cvalue = str(value.toString())
-                        datetime.strptime(cvalue, '%Y-%m-%d')
-                    except ValueError:
-                        cvalue = ''
-            else:
-                cvalue = str(value.toString())
-            if self.dataset[row, field] != cvalue:
-                self.dirty.emit()
+            cvalue = self._getSetValue(field, value)
             self.dataset[row, field] = cvalue
             self.dataChanged.emit(index, index)
             return True
         else:
             return False
+
+    def batchAddTags(self, rows, values):
+        """ Add tags to multiple cells
+
+        A variation on setData for batches
+
+        Arguments:
+            rows ([int]): A list of row indexes
+            values (dict): A dictionary with field names as keys and lists of
+                tag strings as values
+        """
+        left = float('inf')
+        right = 0
+        top = min(rows)
+        bottom = max(rows)
+        fields = values.keys()
+        # Loop over columns then rows to set the data for each index
+        for fieldname in fields:
+            newTags = values[fieldname]
+            col = self.dataset.fields.index(fieldname)
+            field = self.dataset.fields[col]
+            left = min(left, col)
+            right = max(right, col)
+            for row in rows:
+                if isinstance(newTags, QtCore.QVariant):
+                    # Handle case where caller provided QVariant
+                    cvalue = self._getSetValue(field, newTags)
+                else:
+                    # Get the new tag string and make QVariant
+                    index = self.index(row, col)
+                    oldTagStr = str(index.data().toPyObject())
+                    oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
+                               if k.strip() != '']
+                    replace = oldTags + [k for k in newTags if k not in oldTags]
+
+                    cvalue = self._getSetValue(field,
+                                               QtCore.QVariant('; '.join(replace)))
+                # Set the data
+                self.dataset[row, field] = cvalue
+        topLeft = self.index(top, left)
+        bottomRight = self.index(bottom, right)
+        self.dataChanged.emit(topLeft, bottomRight)
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         """ Model required function that returns header data information """
@@ -190,7 +232,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.beginResetModel()
         self.dataset = dataset
         self.endResetModel()
-        self.dirty.emit()
 
     def date(self, row):
         date = self.dataset[row].date

@@ -28,6 +28,7 @@ from create_database import create_database
 from datetime import datetime
 import pdb
 from pkg_resources import parse_version
+import time
 
 
 class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
@@ -505,26 +506,18 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         markTagged = dlg.checkMarkTagged.isChecked()
 
-        # Get a list of new tags
+        # Get a dictionary of new tags with field namess as keys
+        newTags = {}
         for field in fields:
             newTagStr = str(dlg.edits[field].text())
-            newTags = [k.strip() for k in re.split(';|,', newTagStr)
-                       if k.strip() != '']
+            newTags[field] = [k.strip() for k in re.split(';|,', newTagStr)
+                              if k.strip() != '']
 
-            # Apply the new tags, keeping the old
-            for row in selectedRows:
-                # Set tags
-                index = self.model.index(row, self.fields.index(field))
-                oldTagStr = str(index.data().toPyObject())
-                oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
-                           if k.strip() != '']
-                replace = oldTags + [k for k in newTags if k not in oldTags]
-                self.model.setData(index, QtCore.QVariant('; '.join(replace)))
+        if markTagged:
+            newTags[self.album.taggedField] = QtCore.QVariant(True)
 
-                # Set tagged
-                tIndex = self.model.index(row, self.fields.index('Tagged'))
-                if markTagged:
-                    self.model.setData(tIndex, QtCore.QVariant(True))
+        # Batch-add the tags
+        self.model.batchAddTags(selectedRows, newTags)
 
     @QtCore.pyqtSlot()
     def on_changeLog(self):
@@ -563,64 +556,111 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         Slot for model.dataChanged
         """
-        if topLeft != bottomRight:
-            raise ValueError('Not equipped to handle multiple rows/columns')
-        col = self.fields.index('FileId')
-        row = topLeft.row()
-        fileId = self.model.data(self.model.index(row, col)).toInt()[0]
+        # Setup variables
+        left = topLeft.column()
+        right = bottomRight.column()
+        top = topLeft.row()
+        bottom = bottomRight.row()
+        fidCol = self.fields.index('FileId')
 
-        field = self.fields[topLeft.column()]
-        if field.name == self.album.taggedField:
-            value = topLeft.data().toBool()
-            q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
-            with self.db.connect() as con:
-                cur = con.cursor()
-                cur.execute(q, (1 if value else 0, fileId))
-        else:
-            # Handle "Category" fields
-            with self.db.connect() as con:
-                q = 'SELECT CatId from Categories WHERE Name == ?'
-                cur = con.execute(q, (field.name,))
-                res = cur.fetchall()
-                if not res:
-                    # Not a "category" field
-                    return
-                catId = res[0][0]
+        # Set up batch queries
+        taggedQ = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
+        taggedParams = []
 
-                # Get the new tags
-                new_tags = [k.strip() for k in
-                            re.split(';|,', str(topLeft.data().toPyObject()))
-                            if k.strip() != '']
-                q = 'SELECT TagId, Value FROM Tags WHERE CatId == ?'
-                cur = con.execute(q, (catId,))
-                existing = {k[1].lower(): k[0] for k in cur.fetchall()}
-                for new_tag in new_tags:
-                    if new_tag.strip() == '':
-                        continue
-                    if new_tag.lower() not in existing:
-                        # INSERT new tag
-                        q = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
-                        cur.execute(q, [catId, new_tag])
-                        tagId = cur.lastrowid
-                    else:
-                        tagId = existing[new_tag.lower()]
+        insertQ = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
+        insertParams = []
+        mapParams1 = []
 
-                    # Insert FileLoc mapping (ON CONFLICT IGNORE)
-                    q = 'INSERT OR IGNORE INTO TagMap (FilId, TagId) VALUES (?,?)'
-                    cur.execute(q, [fileId, tagId])
+        delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
+                  "(SELECT Value FROM Tags as t WHERE "+\
+                  "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
+                  "NOT IN ({})"
+        delMaps = []
 
-                # Remove deleted locations
-                params = ','.join(['?'] * len(new_tags))
-                q = "DELETE From TagMap WHERE FilId == ? AND "+\
-                    "(SELECT Value FROM Tags as t WHERE "+\
-                    "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
-                    "NOT IN ({})".format(params)
-                cur.execute(q, [fileId, catId] + new_tags)
+        # Current categories and tags
+        with self.db.connect() as con:
+            # Get the category fields by ID and Column
+            fieldnames = [self.fields[c].name for c in range(left, right+1)]
+            fieldstr = ','.join([str('\''+k+'\'') for k in fieldnames])
+            catQ = 'SELECT Name, CatId from Categories WHERE Name in (%s)' % fieldstr
 
-                # Remove them unused tags
-                q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
-                    '(SELECT TagId FROM TagMap)'
-                cur.execute(q)
+            res = con.execute(catQ).fetchall()
+            catNames = [k[0] for k in res]
+            catIds = [k[1] for k in res]
+            catCols = [self.fields.index(k) for k in catNames]
+
+            # Get all tags for each category
+            catstr = ','.join([str(k) for k in catIds])
+            tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
+            alltags = con.execute(tagQ).fetchall()
+
+        # Loop over each index in the range and prepare for database calls
+        for row in range(top, bottom+1):
+            # Get the FilId for the current row
+            fileId = self.model.data(self.model.index(row, fidCol)).toInt()[0]
+
+            for col in range(left, right+1):
+                # Get the field and index of the current cell
+                field = self.fields[col]
+                index = self.model.index(row, col)
+                if field.name == self.album.taggedField:
+                    # Handle the "tagged" checkboxes
+                    value = index.data().toBool()
+                    taggedParams.append((1 if value else 0, fileId))
+                else:
+                    # Handle the tag cagetories
+                    # Skip any field that isn't a tag category
+                    if col not in catCols:
+                        # Not a "category" field
+                        print('Not currently equipped to set this data')
+                        return
+                    catDex = catCols.index(col)
+                    catId = catIds[catDex]
+
+                    # Get the current tags, including changes
+                    cur_tags = [k.strip() for k in
+                                re.split(';|,', str(index.data().toPyObject()))
+                                if k.strip() != '']
+                    existing = {k[2].lower(): k[1] for k in alltags
+                                if k[0] == catId}
+                    for tag in cur_tags:
+                        if tag.strip() == '':
+                            continue
+                        cat_tag = (catId, tag)
+                        if (tag.lower() not in existing and
+                                cat_tag not in insertParams):
+                            # INSERT new tag
+                            insertParams.append(cat_tag)
+                        mapParams1.append((fileId, cat_tag))
+
+                    # Set up to remove deleted tags in this category and file
+                    params = ','.join(['?'] * len(cur_tags))
+                    q = delMapQ.format(params)
+                    delMaps.append((q, [fileId, catId] + cur_tags))
+
+        # Update the tagged status and insert the new tags
+        with self.db.connect() as con:
+            con.executemany(taggedQ, taggedParams)
+            con.executemany(insertQ, insertParams)
+
+            # Get the TagIds
+            alltags = con.execute(tagQ).fetchall()
+            tagIds = {(k[0], k[2]): k[1] for k in alltags}
+            mapParams = [(k[0], tagIds[k[1]]) for k in mapParams1]
+
+            # Insert Tag mapping (ON CONFLICT IGNORE)
+            tagMapQ = 'INSERT OR IGNORE INTO TagMap (FilId, TagId) VALUES (?,?)'
+            con.executemany(tagMapQ, mapParams)
+
+            # Delete removed tags
+            for q, params in delMaps:
+                con.execute(q, params)
+
+            # Remove them unused tags
+            q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
+                '(SELECT TagId FROM TagMap)'
+            con.execute(q)
+
         self.proxy.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
