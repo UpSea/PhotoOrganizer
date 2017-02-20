@@ -89,6 +89,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.newFieldSig.connect(self.on_newField)
         self.actionNewField.triggered.connect(self.on_newField)
         self.actionChangeLog.triggered.connect(self.on_changeLog)
+        self.groupDateFilter.clicked.connect(self.proxy.setDateFilterStatus)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -103,6 +104,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.on_comboDate(self.proxy.MonthFilter)
         self.checkDateRange.setChecked(True)
         self.on_checkDateChanged(QtCore.Qt.Checked)
+        self.proxy.setDateFilterStatus(self.groupDateFilter.isChecked())
 
     def showEvent(self, event):
         """ Re-implemented to restore window geometry when shown """
@@ -692,7 +694,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                                 QtCore.QRegExp.RegExp)
 
         self.proxy.setFilterRegExp(search)
-        self.setWidthHeight()
 
     @QtCore.pyqtSlot()
     def on_newDatabase(self):

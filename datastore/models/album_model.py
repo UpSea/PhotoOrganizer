@@ -208,6 +208,7 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         super(AlbumSortFilterModel, self).__init__(*args, **kwargs)
         self.fromDate = QtCore.QDate(datetime(MINYEAR, 1, 1))
         self.toDate = QtCore.QDate(datetime(MAXYEAR, 1, 1))
+        self._dateFilter = False
         self._dateBetween = True
         self._dateFilterType = self.DayFilter
         self._hideTagged = False
@@ -225,7 +226,7 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         sourceModel = self.sourceModel()
         # Check date range first
         date = sourceModel.date(sourceRow)
-        if date:
+        if date and self._dateFilter:
             # Round the dates to the desired resolution
             checkDate = self.roundDate(date)
             fromDate = self.roundDate(self.fromDate)
@@ -319,6 +320,11 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
             checked (bool): Checked state of the signaling action
         """
         self._hideTagged = checked
+        self.invalidate()
+
+    @QtCore.pyqtSlot(bool)
+    def setDateFilterStatus(self, status):
+        self._dateFilter = status
         self.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QDate)

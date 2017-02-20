@@ -28,6 +28,12 @@
            <property name="title">
             <string>Date Filter</string>
            </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <property name="checked">
+            <bool>false</bool>
+           </property>
            <layout class="QHBoxLayout" name="horizontalLayout_2">
             <property name="margin">
              <number>6</number>
@@ -84,9 +90,16 @@
            <property name="title">
             <string>Tag Filter</string>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout_3">
+           <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="10,0">
             <item>
              <widget class="QLineEdit" name="lineEdit"/>
+            </item>
+            <item>
+             <widget class="QToolButton" name="toolButton">
+              <property name="text">
+               <string>X</string>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -276,6 +289,22 @@ This may take a while if there are many photos. Watch the status bar below for p
     <hint type="destinationlabel">
      <x>399</x>
      <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>toolButton</sender>
+   <signal>clicked()</signal>
+   <receiver>lineEdit</receiver>
+   <slot>clear()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>549</x>
+     <y>63</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>448</x>
+     <y>63</y>
     </hint>
    </hints>
   </connection>
