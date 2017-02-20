@@ -1,5 +1,7 @@
 from PyQt4 import QtCore, QtGui
 from datetime import datetime, MAXYEAR, MINYEAR
+import shlex
+import re
 
 # Place holder
 edit_role = QtCore.Qt.EditRole
@@ -241,17 +243,38 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         if self._hideTagged and tagged:
             return False
 
-        # Check each column for the regular expression
-        for c in range(sourceModel.columnCount()):
-            # Don't filter non-filtered fields
-            if not sourceModel.dataset.fields[c].filter:
-                continue
+        # Here we want to match each word in the pattern individually. If all
+        # sub-patterns match in any "filter" column, we'll accept
 
-            # Apply regex
-            index = sourceModel.index(sourceRow, c, sourceParent)
-            if index.data().toString().contains(self.filterRegExp()):
-                return True
-        return False
+        # Find separate pattern strings
+        pat = str(self.filterRegExp().pattern())
+
+        # Remove lonely double-quotes that shlex will choke on
+        if len(re.findall('"', pat)) % 2:
+            lastq = len(pat) - 1 - pat[::-1].index('"')
+            pat = pat[:lastq] + pat[lastq+1:]
+
+        if not pat:
+            return True
+        pats = [QtCore.QRegExp(k, QtCore.Qt.CaseInsensitive,
+                               QtCore.QRegExp.RegExp)
+                for k in shlex.split(pat)]
+
+        # Check each column for the regular expression
+        out = [False]*len(pats)
+        for k, pat in enumerate(pats):
+            for c in range(sourceModel.columnCount()):
+                # Don't filter non-filtered fields
+                if not sourceModel.dataset.fields[c].filter:
+                    continue
+
+                # Apply regex
+                index = sourceModel.index(sourceRow, c, sourceParent)
+                if index.data().toString().contains(pat):
+                    out[k] = True
+                    break
+
+        return all(out)
 
     def roundDate(self, date):
         """ Truncate the date to the year/month/day per dateFilterType
