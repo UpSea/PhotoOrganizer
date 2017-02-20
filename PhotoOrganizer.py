@@ -82,6 +82,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.actionAbout.triggered.connect(self.on_helpAbout)
         self.dateFrom.dateChanged.connect(self.proxy.setFromDate)
+        self.dateFrom.dateChanged.connect(self.dateTo.setMinimumDate)
         self.dateTo.dateChanged.connect(self.proxy.setToDate)
         self.checkDateRange.stateChanged.connect(self.on_checkDateChanged)
         self.comboDateFilter.currentIndexChanged[int].connect(self.on_comboDate)
@@ -284,6 +285,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             dlg.exec_()
 
         self.setWidthHeight()
+        self.setDateRange()
 
     def openDatabase(self, dbfile, close=False):
         """ Open a database file and populate the album table
