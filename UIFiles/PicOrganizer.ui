@@ -17,7 +17,7 @@
    <layout class="QVBoxLayout" name="verticalLayout_2">
     <item>
      <widget class="QWidget" name="mainWidget" native="true">
-      <layout class="QVBoxLayout" name="verticalLayout">
+      <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1,0">
        <property name="margin">
         <number>0</number>
        </property>
@@ -123,7 +123,30 @@
         </layout>
        </item>
        <item>
-        <widget class="PhotoTable" name="view"/>
+        <widget class="QSplitter" name="splitter">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <widget class="TagTreeView" name="treeView">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="headerHidden">
+           <bool>true</bool>
+          </property>
+         </widget>
+         <widget class="PhotoTable" name="view">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+         </widget>
+        </widget>
        </item>
        <item>
         <widget class="QLabel" name="labelNoPhotos">
@@ -268,6 +291,11 @@ This may take a while if there are many photos. Watch the status bar below for p
    <class>PhotoTable</class>
    <extends>QTableView</extends>
    <header>photo_table</header>
+  </customwidget>
+  <customwidget>
+   <class>TagTreeView</class>
+   <extends>QTreeView</extends>
+   <header>FilterTree</header>
   </customwidget>
  </customwidgets>
  <tabstops>

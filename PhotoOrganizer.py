@@ -22,6 +22,7 @@ import re
 from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
+from FilterTree import TagItemModel, TagFilterProxyModel
 from Dialogs import WarningDialog, warning_box, BatchTag
 from database import PhotoDatabase
 from create_database import create_database
@@ -73,6 +74,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.setItemDelegate(AlbumDelegate())
         self.view.rehideColumns()
 
+        # Set up tree view model
+        self.treeModel = TagItemModel()
+        self.treeProxy = TagFilterProxyModel()
+        self.treeProxy.setSourceModel(self.treeModel)
+        self.treeView.setModel(self.treeProxy)
+
         # Signal Connections
         self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
@@ -92,6 +99,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionNewField.triggered.connect(self.on_newField)
         self.actionChangeLog.triggered.connect(self.on_changeLog)
         self.groupDateFilter.toggled.connect(self.proxy.setDateFilterStatus)
+        self.treeModel.dataChanged.connect(self.on_treeDataChanged)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -422,6 +430,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.setWidgetVisibility()
         self.view.rehideColumns()
         self.updateWindowTitle()
+
+        self.treeView.setDb(self.db)
+        self.treeView.populateTree()
+        self.treeView.expandAll()
 
     ######################
     #  Helper Functions  #
@@ -804,6 +816,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             size (int): The desired square size of the thumbnail in pixels
         """
         self.setWidthHeight(size)
+
+    def on_treeDataChanged(self):
+        """ Handle changes to the tree view data"""
+        self.treeProxy.invalidate()
+
+        # Set the line edit filter
+        tags = self.treeModel.getCheckedTagNames()
+        self.lineEdit.setText(' '.join(tags))
 
     #####################
     #     PROPERTIES    #
