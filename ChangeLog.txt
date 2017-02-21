@@ -1,6 +1,17 @@
-v0.2.1
+v0.2.2 Add preliminary filter tree
+-Regex filter splits on spaces except within quotes
+-Date filter is checkable
+-"To" Date Edit now can't go below "From" date
+-Batch tagging speed drastically increased
+-Filters are cleared on importFolder
+-Add preliminary filter tree
+   -Released for demonstration. Not fully functional
+
+
+v0.2.1 Minor bug fix
 -Fix bug when images don't have exif date (modified date/time used)
 -Added ChangeLog to help menu
+
 
 v0.2.0: Added custom fields
 Features:
@@ -8,6 +19,5 @@ Features:
 -Context menu for table with Batch Tag and Show in Explorer
 -Hide and unhide columns
 
+
 v0.1.0: First release for demonstration
-
-
