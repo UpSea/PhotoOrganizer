@@ -793,7 +793,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.model.insertColumns(name=str(name))
         newfield = self.fields[-1]
         newfield.filter = True
-        self.db.insertField(newfield)
+        newId = self.db.insertField(newfield)
+        self.treeView.addCategory(newId, newfield.name)
 
     @QtCore.pyqtSlot()
     def on_openDatabase(self):

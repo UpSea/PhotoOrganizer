@@ -51,7 +51,7 @@ class PhotoDatabase(object):
             return dict(zip(names, values))
 
     def insertField(self, fieldobj):
-        """ Insert a new field """
+        """ Insert a new field. Return the id of the new catetory """
         assert(isinstance(fieldobj, FieldObject))
         field_props = FieldObjectContainer.fieldProps
         props = ', '.join(field_props)
@@ -63,11 +63,13 @@ class PhotoDatabase(object):
         with self.connect() as con:
             # Add the field
             con.execute(i, values)
-            con.execute(c, (fieldobj.name,))
+            newId = con.execute(c, (fieldobj.name,)).lastrowid
+            return newId
 
     @property
     def dbfile(self):
         return self._dbfile
+
 
 if __name__ == "__main__":
 #     from create_database import create_database

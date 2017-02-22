@@ -14,6 +14,20 @@ class TagTreeView(QtGui.QTreeView):
         if self.con:
             self.con.close()
 
+    def addCategory(self, catId, catValue):
+        """ Add a category item. Return the category item
+
+        Arguments:
+            catId (int)
+            catValue (str): The name of the category
+        """
+        model = self.model().sourceModel()
+        parent = QtGui.QStandardItem(catValue)
+        parent.id = catId
+        model.appendRow(parent)
+        self.sortByColumn(0)
+        return parent
+
     def addTag(self, cat, tagId, tagValue):
         """ Add a tag item to the given category item
 
@@ -36,10 +50,12 @@ class TagTreeView(QtGui.QTreeView):
         child.setCheckState(QtCore.Qt.Unchecked)
         parent.appendRow(child)
 
-    def populateTree(self):
+    def populateTree(self, clear=True):
         """
         Populate the tree model with tags and categories from the database
         """
+        if clear:
+            self.model().sourceModel().clear()
         con = self.con
         # Get the categories and tags
         catQ = 'SELECT CatId, Name FROM Categories'
@@ -52,11 +68,9 @@ class TagTreeView(QtGui.QTreeView):
 
         # Create the items and add to model
         for cat in sorted(tags.keys()):
-            parent = QtGui.QStandardItem(cat)
-            parent.id = cd[cat]
+            parent = self.addCategory(cd[cat], cat)
             for tag in tags[cat]:
                 self.addTag(parent, *tag)
-            self.model().sourceModel().appendRow(parent)
 
     def setDb(self, db):
         """ Set the database object
