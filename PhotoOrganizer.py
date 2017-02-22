@@ -609,7 +609,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             # Get all tags for each category
             catstr = ','.join([str(k) for k in catIds])
             tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
-            alltags = con.execute(tagQ).fetchall()
+            alltags_before = con.execute(tagQ).fetchall()
 
         # Loop over each index in the range and prepare for database calls
         for row in range(top, bottom+1):
@@ -637,7 +637,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                     cur_tags = [k.strip() for k in
                                 re.split(';|,', str(index.data().toPyObject()))
                                 if k.strip() != '']
-                    existing = {k[2].lower(): k[1] for k in alltags
+                    existing = {k[2].lower(): k[1] for k in alltags_before
                                 if k[0] == catId}
                     for tag in cur_tags:
                         if tag.strip() == '':
@@ -660,8 +660,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             con.executemany(insertQ, insertParams)
 
             # Get the TagIds
-            alltags = con.execute(tagQ).fetchall()
-            tagIds = {(k[0], k[2]): k[1] for k in alltags}
+            alltags_added = con.execute(tagQ).fetchall()
+            tagIds = {(k[0], k[2]): k[1] for k in alltags_added}
             mapParams = [(k[0], tagIds[k[1]]) for k in mapParams1]
 
             # Insert Tag mapping (ON CONFLICT IGNORE)
@@ -676,6 +676,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
                 '(SELECT TagId FROM TagMap)'
             con.execute(q)
+
+            # Update the tree
+            alltags_final = con.execute(tagQ).fetchall()
+            self.treeView.updateTree(alltags_final)
 
         self.proxy.invalidate()
 
