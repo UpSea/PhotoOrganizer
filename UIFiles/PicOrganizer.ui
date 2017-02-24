@@ -211,7 +211,16 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionChangeLog"/>
     <addaction name="actionAbout"/>
    </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionUndo"/>
+    <addaction name="actionRedo"/>
+    <addaction name="actionUndoList"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
    <addaction name="menuOrganize"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -283,6 +292,27 @@ This may take a while if there are many photos. Watch the status bar below for p
   <action name="actionChangeLog">
    <property name="text">
     <string>Change Log</string>
+   </property>
+  </action>
+  <action name="actionUndo">
+   <property name="text">
+    <string>Undo</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Z</string>
+   </property>
+  </action>
+  <action name="actionRedo">
+   <property name="text">
+    <string>Redo</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Y</string>
+   </property>
+  </action>
+  <action name="actionUndoList">
+   <property name="text">
+    <string>Undo List</string>
    </property>
   </action>
  </widget>

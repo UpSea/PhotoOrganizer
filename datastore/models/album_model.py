@@ -133,7 +133,29 @@ class AlbumModel(QtCore.QAbstractTableModel):
         return cvalue
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
-        """ Model required function that sets data changes passed to model """
+        """ Model required function that sets data changes passed to model
+
+        Arguments:
+            index (QModelIndex):
+            value (QVariant):
+            role (Qt::ItemDataRole):
+        """
+        field = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
+        if field and index.isValid():
+            command = setDataCmd(self, index, value, role)
+            self.undoStack.push(command)
+            return True
+        else:
+            return False
+
+    def _setData(self, index, value, role=QtCore.Qt.EditRole):
+        """A private method for directly setting data outside undo/redo
+
+        This method is used by the setDataCmd but can also be used when
+        undo/redo should be bypassed (ie. within another QUndoCommand)
+
+        Same arguments as the public method
+        """
         row = index.row()
         field = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
         if field and index.isValid():
@@ -150,36 +172,56 @@ class AlbumModel(QtCore.QAbstractTableModel):
     def batchAddTags(self, rows, values):
         """ Add tags to multiple cells
 
-        A variation on setData for batches. Emits a custom data changed signal
+        A variation on setData for batches. If a value is QVariant, all rows
+        for that field will be set to the data in QVariant. This is used for
+        bool fields as well as undo.
+
+        Emits a custom data changed signal
         containing a list of file ids and the values dict
 
         Arguments:
             rows ([int]): A list of row indexes
             values (dict): A dictionary with field names as keys and lists of
-                tag strings as values
+                tag strings, or QVariant as values
+        """
+        command = batchAddCmd(self, rows, values)
+        self.undoStack.push(command)
+
+    def _batchAddTags(self, rows, values, keep=True):
+        """ A private method for batch-adding tags
+
+        Same description and arguments as the public method
         """
         left = float('inf')
         right = 0
         top = min(rows)
         bottom = max(rows)
+        if not isinstance(values, list):
+            values = [values]*len(rows)
+        old = [{f: None for f in values[0]} for _ in rows]
         # Loop over columns then rows to set the data for each index
-        for fieldname, newTags in values.iteritems():
+        for fieldname in values[0]:
             col = self.dataset.fields.index(fieldname)
             field = self.dataset.fields[col]
             left = min(left, col)
             right = max(right, col)
-            for row in rows:
+            for r, row in enumerate(rows):
+                newTags = values[r][fieldname]
+                index = self.index(row, col)
+                # Store old value as QVariant. Then on undo we just set
+                # directly rather than figuring out the new tags
+                old[r][fieldname] = index.data()
                 if isinstance(newTags, QtCore.QVariant):
                     # Handle case where caller provided QVariant
                     cvalue = self._getSetValue(field, newTags)
+                    old[r][fieldname] = index.data()
                 else:
                     # Get the new tag string and make QVariant
-                    index = self.index(row, col)
                     oldTagStr = str(index.data().toPyObject())
                     oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
                                if k.strip() != '']
-                    replace = oldTags + [k for k in newTags if k not in oldTags]
-
+                    replace = oldTags + [k for k in newTags
+                                         if k not in oldTags]
                     cvalue = self._getSetValue(field,
                                                QtCore.QVariant('; '.join(replace)))
                 # Set the data
@@ -190,7 +232,9 @@ class AlbumModel(QtCore.QAbstractTableModel):
 
         # Emit the custom data changed signal
         fileIds = [self.dataset[k].fileId for k in rows]
-        self.albumDataChanged.emit(fileIds, values.keys())
+        self.albumDataChanged.emit(fileIds, values[0].keys())
+
+        return old
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         """ Model required function that returns header data information """
@@ -404,6 +448,35 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         return self.sourceModel().dataset.taggedField
 
 
+class batchAddCmd(QtGui.QUndoCommand):
+    """Undo command for batch setting of cell data in the AlbumModel
+
+    Arguments:
+        model: (AlbumModel): The calling model
+        rows ([int]): A list of row indexes
+        values (dict): A dictionary with field names as keys and lists of
+            tag strings as values
+    """
+    description = "Set Batch"
+
+    def __init__(self, model, rows, values, parent=None):
+        self.model = model
+        self.rows = rows
+        self.newvalues = values
+        self.oldvalues = None
+        cell = " ({} Photos)".format(len(rows))
+        description = self.description + cell
+        super(batchAddCmd, self).__init__(description, parent)
+
+    def redo(self):
+        old = self.model._batchAddTags(self.rows, self.newvalues)
+        if self.oldvalues is None:
+            self.oldvalues = old
+
+    def undo(self):
+        self.model._batchAddTags(self.rows, self.oldvalues, keep=False)
+
+
 class deleteCmd(QtGui.QUndoCommand):
 
     description = "Delete Cells"
@@ -423,6 +496,34 @@ class deleteCmd(QtGui.QUndoCommand):
         # Re-populate the cells
         for cell, val in zip(self.indexes, self.old_values):
             self.model.setData(cell, val)
+
+
+class setDataCmd(QtGui.QUndoCommand):
+    """Undo command for setting of cell data in the AlbumModel
+
+    Arguments:
+        model (TabularFieldModel):
+        index (QModelIndex):
+        value (QVariant):
+    """
+    description = "Set Tag Data"
+
+    def __init__(self, model, index, value, role, parent=None):
+        self.model = model
+        self.index = index
+        self.newvalue = value
+        self.role = role
+        self.oldvalue = index.data()
+        field = model.dataset.fields[index.column()]
+        cell = " ({}, {})".format(index.row()+1, field.name)
+        description = self.description + cell
+        super(setDataCmd, self).__init__(description, parent)
+
+    def redo(self):
+        self.model._setData(self.index, self.newvalue)
+
+    def undo(self):
+        self.model._setData(self.index, self.oldvalue)
 
 
 if __name__ == "__main__":

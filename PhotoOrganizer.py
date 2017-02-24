@@ -23,7 +23,7 @@ from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
                        FieldObject, AlbumDelegate, AlbumSortFilterModel)
 from PhotoViewer import ImageViewer
 from FilterTree import TagItemModel, TagFilterProxyModel
-from Dialogs import WarningDialog, warning_box, BatchTag
+from Dialogs import WarningDialog, warning_box, BatchTag, UndoDialog
 from database import PhotoDatabase
 from create_database import create_database
 from datetime import datetime
@@ -59,9 +59,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         openicon = QtGui.QIcon(resource_path(r'icons\Open.ico'))
         self.actionOpenDatabase.setIcon(openicon)
 
+        # Instantiate the Undo Stack
+        self.undoStack = QtGui.QUndoStack(self)
+        self.undoDialog = UndoDialog(self.undoStack, self)
+
         # Instantiate an empty dataset and model
         album = Album()
         self.model = AlbumModel(album)
+        self.model.undoStack = self.undoStack
 
         self.model.albumDataChanged.connect(self.on_albumDataChanged)
         self.proxy = AlbumSortFilterModel(self)
@@ -102,6 +107,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.groupDateFilter.toggled.connect(self.proxy.setDateFilterStatus)
         self.treeModel.dataChanged.connect(self.on_treeDataChanged)
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
+        self.actionUndoList.triggered.connect(self.on_undoList)
+        self.actionUndo.triggered.connect(self.undoStack.undo)
+        self.actionRedo.triggered.connect(self.undoStack.redo)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -142,6 +150,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Close the current album to prepare to open another """
         # Close child windows
         self.imageViewer.close()
+        self.undoDialog.close()
 
         # Save fields
         if self.databaseFile is None:
@@ -820,6 +829,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """
         self.setWidthHeight(size)
 
+    @QtCore.pyqtSlot()
     def on_treeDataChanged(self):
         """ Handle changes to the tree view data"""
         self.treeProxy.invalidate()
@@ -827,6 +837,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Set the line edit filter
         tags = self.treeModel.getCheckedTagNames()
         self.editFilter.setText(' '.join(tags))
+
+    @QtCore.pyqtSlot()
+    def on_undoList(self):
+        """ Display the undo dialog
+
+        Slot for the menu action
+        """
+        self.undoDialog.show()
 
     #####################
     #     PROPERTIES    #

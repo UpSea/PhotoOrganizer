@@ -41,6 +41,37 @@ class BatchTag(QtGui.QDialog, batchTag_form):
         self.edits[name] = edit
 
 
+class UndoDialog(QtGui.QDialog):
+    """A dialog containing the QUndoView and Undo/Redo buttons
+
+    Arguments:
+        undoStack (QUndoStack):    The QUndoStack for the QUndoView
+        parent (QWidget):          (None) The parent widget
+    """
+    def __init__(self, undoStack, parent=None):
+        super(UndoDialog, self).__init__(parent)
+        self.setWindowFlags(self.windowFlags() &
+                            (~QtCore.Qt.WindowContextHelpButtonHint))
+        self.setWindowTitle('Undo Stack')
+
+        vbox = QtGui.QVBoxLayout()
+        self.undoView = QtGui.QUndoView(undoStack)
+        vbox.addWidget(self.undoView)
+        self.setLayout(vbox)
+
+        self.buttonBox = QtGui.QDialogButtonBox(self)
+        self.buttonBox.setCenterButtons(True)
+        self.undoButton = QtGui.QPushButton('Undo')
+        self.undoButton.clicked.connect(self.undoView.stack().undo)
+        self.redoButton = QtGui.QPushButton('Redo')
+        self.redoButton.clicked.connect(self.undoView.stack().redo)
+        self.buttonBox.addButton(self.undoButton, self.buttonBox.ActionRole)
+        self.buttonBox.addButton(self.redoButton, self.buttonBox.ActionRole)
+        self.buttonBox.setStandardButtons(self.buttonBox.Close)
+        vbox.addWidget(self.buttonBox)
+        self.buttonBox.rejected.connect(self.reject)
+
+
 class WarningDialog(QtGui.QDialog):
     """A QMessageBox-like dialog box"""
     def __init__(self, title, parent=None):
