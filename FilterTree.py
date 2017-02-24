@@ -83,6 +83,15 @@ class TagTreeView(QtGui.QTreeView):
         self.con = db.connect()
         self.model().sourceModel().con = self.con
 
+    def uncheckAll(self):
+        """ Uncheck all items """
+        model = self.model().sourceModel()
+        for p in range(model.rowCount()):
+            parent = model.item(p)
+            for c in range(parent.rowCount()):
+                child = parent.child(c)
+                child.setCheckState(False)
+
     def updateTree(self, catTagDict):
         """ Update tags for specific categories
 

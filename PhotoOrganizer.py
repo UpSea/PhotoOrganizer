@@ -82,7 +82,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeView.setModel(self.treeProxy)
 
         # Signal Connections
-        self.lineEdit.textChanged.connect(self.on_lineEdit_textChanged)
+        self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
@@ -101,6 +101,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionChangeLog.triggered.connect(self.on_changeLog)
         self.groupDateFilter.toggled.connect(self.proxy.setDateFilterStatus)
         self.treeModel.dataChanged.connect(self.on_treeDataChanged)
+        self.buttonClearFilter.clicked.connect(self.on_clearFilter)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -442,7 +443,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     def clearFilters(self):
         self.groupDateFilter.setChecked(False)
-        self.lineEdit.clear()
+        self.editFilter.clear()
 
     def setFilter(self, pattern=None, column=None):
         """Set the table filter
@@ -456,7 +457,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """
         # Set the pattern
         if pattern is not None:
-            self.lineEdit.setText(pattern)
+            self.editFilter.setText(pattern)
 
     def setWidthHeight(self, size=None):
         """Set the width and height of the table columns/rows
@@ -552,6 +553,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """
         self.setWidgetVisibility()
         self.proxy.setDateBetween(state == QtCore.Qt.Checked)
+
+    @QtCore.pyqtSlot()
+    def on_clearFilter(self):
+        """ Clear the line edit and tree view """
+        self.editFilter.clear()
+        self.treeView.uncheckAll()
 
     @QtCore.pyqtSlot(int)
     def on_comboDate(self, filt):
@@ -734,7 +741,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             self.importFolder(str(folder), self.databaseFile)
 
     @QtCore.pyqtSlot(str)
-    def on_lineEdit_textChanged(self, pattern):
+    def on_editFilter_textChanged(self, pattern):
         """Set the filter
 
         Slot for the line edit
@@ -819,7 +826,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Set the line edit filter
         tags = self.treeModel.getCheckedTagNames()
-        self.lineEdit.setText(' '.join(tags))
+        self.editFilter.setText(' '.join(tags))
 
     #####################
     #     PROPERTIES    #

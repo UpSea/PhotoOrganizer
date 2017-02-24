@@ -24,6 +24,25 @@
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <item>
+          <widget class="QGroupBox" name="groupBox">
+           <property name="title">
+            <string>Tag Filter</string>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="10,0">
+            <item>
+             <widget class="QLineEdit" name="editFilter"/>
+            </item>
+            <item>
+             <widget class="QToolButton" name="buttonClearFilter">
+              <property name="text">
+               <string>X</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
           <widget class="QGroupBox" name="groupDateFilter">
            <property name="title">
             <string>Date Filter</string>
@@ -79,25 +98,6 @@
               </property>
               <property name="calendarPopup">
                <bool>false</bool>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="groupBox">
-           <property name="title">
-            <string>Tag Filter</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="10,0">
-            <item>
-             <widget class="QLineEdit" name="lineEdit"/>
-            </item>
-            <item>
-             <widget class="QToolButton" name="toolButton">
-              <property name="text">
-               <string>X</string>
               </property>
              </widget>
             </item>
@@ -317,22 +317,6 @@ This may take a while if there are many photos. Watch the status bar below for p
     <hint type="destinationlabel">
      <x>399</x>
      <y>299</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>toolButton</sender>
-   <signal>clicked()</signal>
-   <receiver>lineEdit</receiver>
-   <slot>clear()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>549</x>
-     <y>63</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>448</x>
-     <y>63</y>
     </hint>
    </hints>
   </connection>
