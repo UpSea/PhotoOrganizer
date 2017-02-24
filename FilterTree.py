@@ -67,10 +67,11 @@ class TagTreeView(QtGui.QTreeView):
                 for cat in cats}
 
         # Create the items and add to model
-        for cat in sorted(tags.keys()):
+        for cat in tags.keys():
             parent = self.addCategory(cd[cat], cat)
             for tag in tags[cat]:
                 self.addTag(parent, *tag)
+        self.model().sort(0)
 
     def setDb(self, db):
         """ Set the database object
@@ -82,34 +83,35 @@ class TagTreeView(QtGui.QTreeView):
         self.con = db.connect()
         self.model().sourceModel().con = self.con
 
-    def updateTree(self, catTagList):
-        """ Update tags to the given list
+    def updateTree(self, catTagDict):
+        """ Update tags for specific categories
 
-        For each category represented in the list, new tags will be added to
-        the tree, and tags that don't appear in the given list will be removed
+        For each category represented in the dict, new tags will be added to
+        the tree, and tags that don't appear in the given dict will be removed
         from the tree. Categories that aren't represented are ignored
 
         Arguments:
-            catTagList ([tup]):  A list of tuples (or lists) each of which
-                contains a CatId, TagId and Tag Value. This is typically the
-                output of a database query of the Tags table
+            catTagList {int: [tup]}:  A dict of lists of tuples (or lists) each
+                of which contains a TagId and Tag Value. The dict keys
+                are field or category IDs.
         """
         model = self.model().sourceModel()
         catIds = model.catIds()
         # Add each new tag
-        for cid, tid, tv in catTagList:
-            # Get the parent item and list of tag ids
+        for cid, taglist in catTagDict.iteritems():
             parent = model.item(catIds.index(cid))
-            tagIds = [parent.child(k).id for k in range(parent.rowCount())]
-            # Add tags that don't exist in tree
-            if tid not in tagIds:
-                self.addTag(parent, tid, tv)
-                parent.sortChildren(0)
+            for tid, tv in taglist:
+                # Get the parent item and list of tag ids
+                tagIds = [parent.child(k).id for k in range(parent.rowCount())]
+                # Add tags that don't exist in tree
+                if tid not in tagIds:
+                    self.addTag(parent, tid, tv)
 
         # Remove tags that aren't in the list
-        newCats = set([k[0] for k in catTagList])
+        newCats = catTagDict.keys()
         newDex = [catIds.index(k) for k in newCats]
-        newIdPairs = [(k[0], k[1]) for k in catTagList]
+        newIdPairs = [(c, k[0]) for c, taglist in catTagDict.iteritems()
+                      for k in taglist]
         # Loop over each category to update
         for c in newDex:
             cat = model.item(c)
@@ -119,6 +121,7 @@ class TagTreeView(QtGui.QTreeView):
                 tag = cat.child(t)
                 if (cat.id, tag.id) not in newIdPairs:
                     cat.removeRow(t)
+        self.model().sort(0)
 
 
 class TagItemModel(QtGui.QStandardItemModel):

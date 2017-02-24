@@ -78,6 +78,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeModel = TagItemModel()
         self.treeProxy = TagFilterProxyModel()
         self.treeProxy.setSourceModel(self.treeModel)
+        self.treeProxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.treeView.setModel(self.treeProxy)
 
         # Signal Connections
@@ -582,7 +583,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         mapParams1 = []
 
         delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
-                  "(SELECT Value FROM Tags as t WHERE "+\
+                  "(SELECT lower(Value) FROM Tags as t WHERE "+\
                   "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
                   "NOT IN ({})"
         delMaps = []
@@ -595,9 +596,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
             res = con.execute(catQ).fetchall()
             allCatDict = dict(res)
+            catIds = allCatDict.values()
 
             # Get all tags for each category
-            catstr = ','.join([str(k) for k in allCatDict.values()])
+            catstr = ','.join([str(k) for k in catIds])
             tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
             alltags_before = con.execute(tagQ).fetchall()
 
@@ -631,12 +633,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                                 cat_tag not in tags2insert):
                             # INSERT new tag
                             tags2insert.append(cat_tag)
-                        mapParams1.append((fileId, cat_tag))
+                        mapParams1.append((fileId, (catId, tag.lower())))
 
                     # Set up to remove deleted tags in this category and file
                     params = ','.join(['?'] * len(cur_tags))
                     q = delMapQ.format(params)
-                    delMaps.append((q, [fileId, catId] + cur_tags))
+                    delMaps.append((q, [fileId, catId] +
+                                    [k.lower() for k in cur_tags]))
 
         # Update the tagged status and insert the new tags
         self.db.updateTagged(taggedUpdate['ids'], taggedUpdate['vals'])
@@ -644,7 +647,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         with self.db.connect() as con:
             # Get the TagIds
             alltags_added = con.execute(tagQ).fetchall()
-            tagIds = {(k[0], k[2]): k[1] for k in alltags_added}
+            tagIds = {(k[0], k[2].lower()): k[1] for k in alltags_added}
             mapParams = [(k[0], tagIds[k[1]]) for k in mapParams1]
 
             # Insert Tag mapping (ON CONFLICT IGNORE)
@@ -661,7 +664,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             con.execute(q)
 
             # Update the tree
-            alltags_final = con.execute(tagQ).fetchall()
+            tagQ2 = 'SELECT TagId, Value FROM Tags WHERE CatId == ?'
+            alltags_final = dict()
+            for catId in catIds:
+                alltags_final[catId] = con.execute(tagQ2, (catId,)).fetchall()
+
             self.treeView.updateTree(alltags_final)
 
         self.proxy.invalidate()
