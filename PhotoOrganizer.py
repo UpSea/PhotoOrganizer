@@ -574,6 +574,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         Slot for model.dataChanged
         """
+        QtGui.qApp.processEvents()
         # Setup variables
         allFiles = [k.fileId for k in self.album]
 
