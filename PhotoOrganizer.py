@@ -581,11 +581,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         fidCol = self.fields.index('FileId')
 
         # Set up batch queries
-        taggedQ = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
-        taggedParams = []
-
-        insertQ = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
-        insertParams = []
+        taggedUpdate = {'ids': [], 'vals': []}
+        tags2insert = []
         mapParams1 = []
 
         delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
@@ -623,7 +620,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 if field.name == self.album.taggedField:
                     # Handle the "tagged" checkboxes
                     value = index.data().toBool()
-                    taggedParams.append((1 if value else 0, fileId))
+                    taggedUpdate['vals'].append(1 if value else 0)
+                    taggedUpdate['ids'].append(fileId)
                 else:
                     # Handle the tag cagetories
                     # Skip any field that isn't a tag category
@@ -644,9 +642,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                             continue
                         cat_tag = (catId, tag)
                         if (tag.lower() not in existing and
-                                cat_tag not in insertParams):
+                                cat_tag not in tags2insert):
                             # INSERT new tag
-                            insertParams.append(cat_tag)
+                            tags2insert.append(cat_tag)
                         mapParams1.append((fileId, cat_tag))
 
                     # Set up to remove deleted tags in this category and file
@@ -655,10 +653,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                     delMaps.append((q, [fileId, catId] + cur_tags))
 
         # Update the tagged status and insert the new tags
+        self.db.updateTagged(taggedUpdate['ids'], taggedUpdate['vals'])
+        self.db.insertTags(tags2insert)
         with self.db.connect() as con:
-            con.executemany(taggedQ, taggedParams)
-            con.executemany(insertQ, insertParams)
-
             # Get the TagIds
             alltags_added = con.execute(tagQ).fetchall()
             tagIds = {(k[0], k[2]): k[1] for k in alltags_added}

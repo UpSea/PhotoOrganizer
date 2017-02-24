@@ -51,7 +51,10 @@ class PhotoDatabase(object):
             return dict(zip(names, values))
 
     def insertField(self, fieldobj):
-        """ Insert a new field. Return the id of the new catetory """
+        """ Insert a new field. Return the id of the new catetory
+
+        Arguments:
+        """
         assert(isinstance(fieldobj, FieldObject))
         field_props = FieldObjectContainer.fieldProps
         props = ', '.join(field_props)
@@ -66,6 +69,48 @@ class PhotoDatabase(object):
             newId = con.execute(c, (fieldobj.name,)).lastrowid
             return newId
 
+    def insertTags(self, catIds, tagValues=None):
+        """ Insert a new tag. Return the id of the new tag
+
+        Arguments
+        """
+        if tagValues is not None:
+            if isinstance(catIds, int):
+                catIds = [catIds]
+            if isinstance(tagValues, basestring):
+                tagValues = [tagValues]
+            params = zip(catIds, tagValues)
+        else:
+            params = catIds
+
+        q = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
+        with self.connect() as con:
+            ids = []
+            for param in params:
+                try:
+                    ids.append(con.execute(q, param).lastrowid)
+                except sqlite3.IntegrityError:
+                    # Probably failed unique constraint, ignore because tag
+                    # already exists for cat
+                    pass
+        return ids
+
+    def updateTagged(self, FileIds, tagged):
+        """
+
+        Arguments:
+            FileIds ([int], int)
+            tagged ([bool], bool)
+        """
+        if isinstance(FileIds, int):
+            FileIds = [FileIds]
+        if isinstance(tagged, bool):
+            tagged = [tagged]
+
+        q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
+        with self.connect() as con:
+            return con.executemany(q, zip(tagged, FileIds)).rowcount
+
     @property
     def dbfile(self):
         return self._dbfile
@@ -73,9 +118,16 @@ class PhotoDatabase(object):
 
 if __name__ == "__main__":
 #     from create_database import create_database
-    dbfile = 'TestDb2.db'
+    dbfile = 'Fresh.pdb'
 #     create_database(dbfile)
     db = PhotoDatabase(dbfile)
 #     db.insertField(FieldObject('People'))
-    print db.getTableAsDict('Fields')
-    print db.getTableAsDict('Fields', False)
+#     print db.getTableAsDict('Fields')
+#     print db.getTableAsDict('Fields', False)
+    with db.connect() as con:
+        try:
+            con.execute('INSERT INTO Tags (CatId, Value) VALUES (1, "Evelyn")')
+        except sqlite3.IntegrityError:
+            print 'failed'
+    import pdb
+    pdb.set_trace()
