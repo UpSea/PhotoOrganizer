@@ -40,8 +40,8 @@ class Photo(dict):
         else:
             return super(Photo, self).__getitem__(self.field_by_name(key))
 
-    def removeField(self, field):
-        del self[field]
+    def __repr__(self):
+        return '<Photo: %s>' % dict.__repr__(self)
 
     def field_by_name(self, name):
         field_names = [k.name for k in self.keys()]
@@ -53,8 +53,24 @@ class Photo(dict):
 
         return self.keys()[dex[0]]
 
-    def __repr__(self):
-        return '<Photo: %s>' % dict.__repr__(self)
+    def removeField(self, field):
+        del self[field]
+
+    def splitTags(self, tagStr):
+        """ Return a list of strings from the given delimited string
+
+        Arguments:
+            tagStr (str): A , or ; delimited string of tags
+        """
+        return [k.strip() for k in re.split(';|,', tagStr) if k.strip() != '']
+
+    def tags(self, field):
+        """ Return the tags in a list  for the given field
+
+        Arguments:
+            field (FieldObject, str): The field object or name
+        """
+        return self.splitTags(self[field])
 
     @property
     def date(self):
@@ -67,6 +83,10 @@ class Photo(dict):
             except ValueError:
                 return
 
+    @property
+    def fileId(self):
+        return self[Album.fileIdField]
+
 
 class Album(MutableSequence):
     """A Photo container
@@ -78,8 +98,9 @@ class Album(MutableSequence):
             of objects. Each sublist should be the same length as fields.
     """
 
-    taggedField = 'Tagged'
     dateField = 'Date'
+    fileIdField = 'FileId'
+    taggedField = 'Tagged'
 
     def __init__(self, fields=None, values=None):
         fields = fields or []

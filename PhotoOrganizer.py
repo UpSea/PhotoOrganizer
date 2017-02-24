@@ -63,7 +63,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         album = Album()
         self.model = AlbumModel(album)
 
-        self.model.dataChanged.connect(self.on_dataChanged)
+        self.model.albumDataChanged.connect(self.on_albumDataChanged)
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
@@ -567,18 +567,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.dateFrom.setDisplayFormat(displayFormats[filt])
         self.dateTo.setDisplayFormat(displayFormats[filt])
 
-    @QtCore.pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex)
-    def on_dataChanged(self, topLeft, bottomRight):
+    @QtCore.pyqtSlot(list, list)
+    def on_albumDataChanged(self, fileIds, fieldnames):
         """ Update the database when user changes data
 
         Slot for model.dataChanged
         """
         # Setup variables
-        left = topLeft.column()
-        right = bottomRight.column()
-        top = topLeft.row()
-        bottom = bottomRight.row()
-        fidCol = self.fields.index('FileId')
+        allFiles = [k.fileId for k in self.album]
 
         # Set up batch queries
         taggedUpdate = {'ids': [], 'vals': []}
@@ -594,47 +590,37 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Current categories and tags
         with self.db.connect() as con:
             # Get the category fields by ID and Column
-            fieldnames = [self.fields[c].name for c in range(left, right+1)]
             fieldstr = ','.join([str('\''+k+'\'') for k in fieldnames])
             catQ = 'SELECT Name, CatId from Categories WHERE Name in (%s)' % fieldstr
 
             res = con.execute(catQ).fetchall()
-            catNames = [k[0] for k in res]
-            catIds = [k[1] for k in res]
-            catCols = [self.fields.index(k) for k in catNames]
+            allCatDict = dict(res)
 
             # Get all tags for each category
-            catstr = ','.join([str(k) for k in catIds])
+            catstr = ','.join([str(k) for k in allCatDict.values()])
             tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
             alltags_before = con.execute(tagQ).fetchall()
 
         # Loop over each index in the range and prepare for database calls
-        for row in range(top, bottom+1):
-            # Get the FilId for the current row
-            fileId = self.model.data(self.model.index(row, fidCol)).toInt()[0]
-
-            for col in range(left, right+1):
-                # Get the field and index of the current cell
-                field = self.fields[col]
-                index = self.model.index(row, col)
-                if field.name == self.album.taggedField:
+        for fileId in fileIds:
+            for field in fieldnames:
+                # Get the index of the current cell
+                row = allFiles.index(fileId)
+                photo = self.album[row]
+                if field == self.album.taggedField:
                     # Handle the "tagged" checkboxes
-                    value = index.data().toBool()
-                    taggedUpdate['vals'].append(1 if value else 0)
+                    taggedUpdate['vals'].append(1 if photo[field] else 0)
                     taggedUpdate['ids'].append(fileId)
                 else:
                     # Handle the tag cagetories
                     # Skip any field that isn't a tag category
-                    if col not in catCols:
+                    if field not in allCatDict:
                         # Not a "category" field
                         continue
-                    catDex = catCols.index(col)
-                    catId = catIds[catDex]
+                    catId = allCatDict[field]
 
-                    # Get the current tags, including changes
-                    cur_tags = [k.strip() for k in
-                                re.split(';|,', str(index.data().toPyObject()))
-                                if k.strip() != '']
+                    # Get the current tags, including changes, from the dataset
+                    cur_tags = photo.tags(field)
                     existing = {k[2].lower(): k[1] for k in alltags_before
                                 if k[0] == catId}
                     for tag in cur_tags:

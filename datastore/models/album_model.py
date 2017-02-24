@@ -11,6 +11,8 @@ model_idx = QtCore.QModelIndex
 class AlbumModel(QtCore.QAbstractTableModel):
     """ A model for an Album table view """
 
+    albumDataChanged = QtCore.pyqtSignal(list, list)
+
     def __init__(self, dataset, parent=None):
         """ Initialize Model """
         super(AlbumModel, self).__init__(parent)
@@ -137,8 +139,10 @@ class AlbumModel(QtCore.QAbstractTableModel):
         if field and index.isValid():
             field = self.dataset.fields[index.column()]
             cvalue = self._getSetValue(field, value)
-            self.dataset[row, field] = cvalue
+            photo = self.dataset[row]
+            photo[field] = cvalue
             self.dataChanged.emit(index, index)
+            self.albumDataChanged.emit([photo.fileId], [field.name])
             return True
         else:
             return False
@@ -146,7 +150,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
     def batchAddTags(self, rows, values):
         """ Add tags to multiple cells
 
-        A variation on setData for batches
+        A variation on setData for batches. Emits a custom data changed signal
+        containing a list of file ids and the values dict
 
         Arguments:
             rows ([int]): A list of row indexes
@@ -157,10 +162,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
         right = 0
         top = min(rows)
         bottom = max(rows)
-        fields = values.keys()
         # Loop over columns then rows to set the data for each index
-        for fieldname in fields:
-            newTags = values[fieldname]
+        for fieldname, newTags in values.iteritems():
             col = self.dataset.fields.index(fieldname)
             field = self.dataset.fields[col]
             left = min(left, col)
@@ -184,6 +187,10 @@ class AlbumModel(QtCore.QAbstractTableModel):
         topLeft = self.index(top, left)
         bottomRight = self.index(bottom, right)
         self.dataChanged.emit(topLeft, bottomRight)
+
+        # Emit the custom data changed signal
+        fileIds = [self.dataset[k].fileId for k in rows]
+        self.albumDataChanged.emit(fileIds, values.keys())
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
         """ Model required function that returns header data information """
