@@ -54,14 +54,30 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
         # Add icons
-        newicon = QtGui.QIcon(resource_path(r'icons\New.ico'))
-        self.actionNewDatabase.setIcon(newicon)
-        openicon = QtGui.QIcon(resource_path(r'icons\Open.ico'))
-        self.actionOpenDatabase.setIcon(openicon)
+        actionicons = [(self.actionNewDatabase, r'icons\New.ico'),
+                       (self.actionOpenDatabase, r'icons\Open.ico'),
+                       (self.actionUndo, r'icons\Undo.png'),
+                       (self.actionRedo, r'icons\Redo.png')]
+        for action, iconPath in actionicons:
+            icon = QtGui.QIcon(resource_path(iconPath))
+            action.setIcon(icon)
 
         # Instantiate the Undo Stack
         self.undoStack = QtGui.QUndoStack(self)
         self.undoDialog = UndoDialog(self.undoStack, self)
+
+        # Edit Menu
+        self.actionUndo = self.undoStack.createUndoAction(self.menuEdit, 'Undo')
+        undoIcon = QtGui.QIcon(resource_path(r'icons\undo.png'))
+        self.actionUndo.setIcon(undoIcon)
+        self.actionUndo.setShortcut('Ctrl+Z')
+        self.menuEdit.addAction(self.actionUndo)
+
+        self.actionRedo = self.undoStack.createRedoAction(self.menuEdit, 'Redo')
+        redoIcon = QtGui.QIcon(resource_path(r'icons\redo.png'))
+        self.actionRedo.setIcon(redoIcon)
+        self.actionRedo.setShortcut('Ctrl+Y')
+        self.menuEdit.addAction(self.actionRedo)
 
         # Instantiate an empty dataset and model
         album = Album()
@@ -78,6 +94,17 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.setSortingEnabled(True)
         self.view.setItemDelegate(AlbumDelegate())
         self.view.rehideColumns()
+
+        # Set up the toolbar
+        self.toolBar.addAction(self.actionUndo)
+        self.toolBar.addAction(self.actionRedo)
+
+        def add_shortcut(action):
+            shortcut = action.shortcut().toString()
+            if shortcut:
+                sc = action.toolTip() + ' ({})'.format(shortcut)
+                action.setToolTip(sc)
+        map(add_shortcut, self.toolBar.actions())
 
         # Set up tree view model
         self.treeModel = TagItemModel()
@@ -128,8 +155,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     def showEvent(self, event):
         """ Re-implemented to restore window geometry when shown """
+        # Restore the window geometry
         settings = QtCore.QSettings()
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
+        # Restore the toolbar settings
+        tb = settings.value('toolbarShowing')
+        state = tb.toBool() if tb else True
+        self.actionToolbar.setChecked(state)
+        # Restore the database
         dbfile = self.databaseFile or settings.value("lastDatabase").toString()
         if dbfile:
             self.openDatabase(str(dbfile), False)
@@ -139,9 +172,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Save general App settings
         settings = QtCore.QSettings()
         settings.clear()
+        # Save the window geometry
         settings.setValue("MainWindow/Geometry", QtCore.QVariant(
                           self.saveGeometry()))
+        # Save the database
         settings.setValue("lastDatabase", QtCore.QVariant(self.databaseFile))
+        # Save the toolbar settings
+        settings.setValue("toolbarShowing",
+                          QtCore.QVariant(self.actionToolbar.isChecked()))
 
         # Close the current album
         self.closeDatabase()
