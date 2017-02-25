@@ -1,7 +1,10 @@
 """ A module for interacting with the photo database file """
 import sqlite3
-from datastore import FieldObjectContainer, FieldObject
-from PyQt4 import QtCore
+from datastore import FieldObjectContainer, FieldObject, Album, Photo
+from PyQt4 import QtGui, QtCore
+from pkg_resources import parse_version
+import re
+from io import BytesIO
 
 
 class PhotoDatabase(QtCore.QObject):
@@ -62,7 +65,7 @@ class PhotoDatabase(QtCore.QObject):
             con.execute(dfq, (name,))
         self.databaseChanged.emit()
 
-    def getTableAsDict(self, table, onePer=True):
+    def getTableAsDict(self, table, con=None, onePer=True, dbfile=None):
         """ Get the values of a table as a list of dictionaries
 
         Arguments:
@@ -70,18 +73,27 @@ class PhotoDatabase(QtCore.QObject):
                 the values of each column grouped in a list under the field key
         """
         q = 'SELECT * FROM {}'.format(table)
-        with self.connect() as con:
+        close = False if con else True
+        con = con or self.connect(dbfile)
+        try:
             cur = con.execute(q)
             values = [list(k) for k in cur]
             names = [k[0] for k in cur.description]
             if onePer:
-                return [dict(zip(names, v)) for v in values]
+                out = [dict(zip(names, v)) for v in values]
             else:
                 values = map(list, zip(*values))
-            return dict(zip(names, values))
+                out = dict(zip(names, values))
+        except Exception as err:
+            if close:
+                con.close()
+            raise err
+        if close:
+            con.close()
+        return out
 
     def insertField(self, fieldobj):
-        """ Insert a new field. Return the id of the new catetory
+        """ Insert a new field. Return the id of the new category
 
         Arguments:
         """
@@ -126,6 +138,102 @@ class PhotoDatabase(QtCore.QObject):
                     pass
         self.databaseChanged.emit()
         return ids
+
+    def load(self, dbfile):
+        """ Load a database file
+
+        Returns:
+            album (Album)
+            geometry (read-write buffer): The main window geomerty as saved in
+                the database
+        """
+        # Create the query strings
+        qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
+              'tagged, datetime(importTimeUTC, "localtime") FROM File'
+        try:
+            con = self.connect(dbfile)
+        except:
+            return (False, 'Could not open {}'.format(dbfile))
+
+        with con:
+            q = 'SELECT AppFileVersion FROM AppData'
+            try:
+                version = con.execute(q).fetchone()[0]
+            except:
+                version = 0
+            if compareRelease(version, '0.2') < 0:
+                return (False, 'This version of Photo Organizer is not ' +
+                        'compatible with the database you chose.', self)
+
+            # Get the fields and create the new Album instance
+            cur = con.execute('SELECT Name, Required, Editor, Editable, '+
+                              'Name_Editable, Hidden, Filt , Tags FROM Fields')
+            param_values = [list(k) for k in cur]
+            params = [k[0].lower() for k in cur.description]
+            vals = map(list, zip(*param_values))
+            param_dicts = dict(zip(params, vals))
+            album = Album(FieldObjectContainer(**param_dicts))
+            fields = album.fields
+
+            # Define the tag query string
+            tqry = 'SELECT t.Value FROM File as f '+\
+                   'JOIN TagMap as tm ON f.FilId == tm.FilId '+\
+                   'JOIN Tags as t ON tm.TagId == t.TagId '+\
+                   'JOIN Categories as c ON t.CatId == c.CatId '+\
+                   'WHERE f.FilId == ? and c.Name == ?'
+
+            # Get the categories and their fields
+            categories = self.getTableAsDict('Categories', con, onePer=True)
+
+            # Get the Photos and populate the Album
+            cur2 = con.cursor()
+            fileCur = con.execute(qry)
+            k = 0
+            for row in fileCur:
+                k += 1
+                directory = row[0]
+                fname = row[1]
+                date = row[2]
+                hsh = row[3]
+                data = row[4]
+                fileId = row[5]
+                tagged = bool(row[6])
+                insertDate = row[7]
+                fp = BytesIO(data)
+
+                # Create the QPixmap from the byte array
+                pix = QtGui.QPixmap()
+                pix.loadFromData(fp.getvalue())
+                thumb = QtGui.QIcon(pix)
+
+                # Create the values list based on the order of fields
+                def updateValues(values, name, val):
+                    values[fields.index(name)] = val
+
+                values = ['' for _ in fields]
+                updateValues(values, 'Directory', directory)
+                updateValues(values, 'File Name', fname)
+                updateValues(values, 'Date', date)
+                updateValues(values, 'Hash', str(hsh))
+                updateValues(values, 'FileId', fileId)
+                updateValues(values, 'Tagged', tagged)
+                updateValues(values, 'Import Date', insertDate)
+
+                for cat in categories:
+                    # Get the tags and group with categories
+                    catname = cat['Name']
+                    cur2.execute(tqry, [fileId, catname])
+                    tagList = cur2.fetchall()
+                    tags = '; '.join([t[0] for t in tagList])
+                    updateValues(values, catname, tags)
+
+                album.append(Photo(fields, values, thumb))
+
+            # Get the geometry
+            q_geo = 'SELECT AlbumTableState from AppData'
+            cur.execute(q_geo)
+            geometry = cur.fetchone()[0]
+        return album, geometry
 
     def setFields(self, fields):
         """ Set the fields table to the given FieldContainerObjects
@@ -190,14 +298,28 @@ class PhotoDatabase(QtCore.QObject):
         return self._dbfile
 
 
+def compareRelease(a, b):
+    """Compares two release numbers. Returns 0 if versions are the same, -1 if
+    the a is older than b and 1 if a is newer than b"""
+    a = parse_version(re.sub('\(.*?\)', '', a))
+    b = parse_version(re.sub('\(.*?\)', '', b))
+    if a < b:
+        return -1
+    elif a == b:
+        return 0
+    else:
+        return 1
+
+
 if __name__ == "__main__":
+    app = QtGui.QApplication([])
 #     from create_database import create_database
-    dbfile = 'FreshTrash.pdb'
+    dbfile = 'asdf.pdb'
 #     create_database(dbfile)
     db = PhotoDatabase(dbfile)
 #     db.insertField(FieldObject('People'))
 #     print db.getTableAsDict('Fields')
-#     print db.getTableAsDict('Fields', False)
+#     print db.getTableAsDict('Fields', onePer=False)
 
 #     with db.connect() as con:
 #         try:
@@ -205,8 +327,9 @@ if __name__ == "__main__":
 #         except sqlite3.IntegrityError:
 #             print 'failed'
 
-    db.dropField('Joe')
+#     db.dropField('Joe')
 
+    album = db.load(dbfile)
 
 #     import pdb
 #     pdb.set_trace()

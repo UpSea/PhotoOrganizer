@@ -29,7 +29,6 @@ from create_database import create_database
 from datetime import datetime
 import undo
 import pdb
-from pkg_resources import parse_version
 
 
 class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
@@ -329,120 +328,33 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             warning_box(msg, self)
             return
 
-        # Create the query strings
-        cnt = 'SELECT count(*) FROM File'
-        qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
-              'tagged, datetime(importTimeUTC, "localtime") FROM File'
-        try:
-            con = self.db.connect(dbfile)
-        except:
-            warning_box('Cannot open {}'.format(self.databaseFile), self)
+        # Load the database into an Album
+        album, geometry = self.db.load(dbfile)
+        if album in (False, None):
+            # There was an error
+            warning_box(geometry, self)
 
-        with con:
-            q = 'SELECT AppFileVersion FROM AppData'
-            try:
-                version = con.execute(q).fetchone()[0]
-            except:
-                version = 0
-            if compareRelease(version, '0.2') < 0:
-                warning_box('This version of Photo Organizer is not ' +
-                            'compatible with the database you chose.', self)
-                return
+        # Close the exiting database
+        self.closeDatabase()
 
-            # Close the exiting database
-            self.closeDatabase()
+        # Set up the PhotoDatabase instance
+        self.db.setDatabaseFile(dbfile)
 
-            # Make sure table is visible
-            if self.view.isHidden():
-                self.mainWidget.setHidden(False)
-                self.view.setHidden(False)
-                self.treeView.setHidden(False)
-                self.labelNoDatabase.setHidden(True)
-                self.labelNoPhotos.setHidden(True)
+        # Set the new dataset
+        self.model.changeDataSet(album)
 
-            # Set up the PhotoDatabase instance
-            self.db.setDatabaseFile(dbfile)
+        # Make sure table is visible
+        if self.view.isHidden():
+            self.mainWidget.setHidden(False)
+            self.view.setHidden(False)
+            self.treeView.setHidden(False)
+            self.labelNoDatabase.setHidden(True)
+            self.labelNoPhotos.setHidden(True)
 
-            # Get the fields and create the new Album instance
-            cur = con.execute('SELECT Name, Required, Editor, Editable, '+
-                              'Name_Editable, Hidden, Filt FROM Fields')
-            param_values = [list(k) for k in cur]
-            params = [k[0].lower() for k in cur.description]
-            vals = map(list, zip(*param_values))
-            param_dicts = dict(zip(params, vals))
-            fields = FieldObjectContainer(**param_dicts)
-            self.model.changeDataSet(Album(fields))
-
-            # Define the tag query string
-            tqry = 'SELECT t.Value FROM File as f '+\
-                   'JOIN TagMap as tm ON f.FilId == tm.FilId '+\
-                   'JOIN Tags as t ON tm.TagId == t.TagId '+\
-                   'JOIN Categories as c ON t.CatId == c.CatId '+\
-                   'WHERE f.FilId == ? and c.Name == ?'
-
-            # Get the categories and their fields
-            categories = self.db.getTableAsDict('Categories', onePer=True)
-
-            # Get the Photos and populate the Album
-            cur2 = con.cursor()
-            cur.execute(cnt)
-            count = cur.fetchone()[0]
-            fileCur = con.execute(qry)
-            k = 0
-            for row in fileCur:
-                k += 1
-                directory = row[0]
-                fname = row[1]
-                date = row[2]
-                hsh = row[3]
-                data = row[4]
-                fileId = row[5]
-                tagged = bool(row[6])
-                insertDate = row[7]
-                fp = BytesIO(data)
-
-                # Create the QPixmap from the byte array
-                pix = QtGui.QPixmap()
-                pix.loadFromData(fp.getvalue())
-                thumb = QtGui.QIcon(pix)
-
-                # Create the values list based on the order of fields
-                def updateValues(values, name, val):
-                    values[self.fields.index(name)] = val
-
-                values = ['' for _ in self.fields]
-                updateValues(values, 'Directory', directory)
-                updateValues(values, 'File Name', fname)
-                updateValues(values, 'Date', date)
-                updateValues(values, 'Hash', str(hsh))
-                updateValues(values, 'FileId', fileId)
-                updateValues(values, 'Tagged', tagged)
-                updateValues(values, 'Import Date', insertDate)
-
-                for cat in categories:
-                    # Get the tags and group with categories
-                    catname = cat['Name']
-                    cur2.execute(tqry, [fileId, catname])
-                    tagList = cur2.fetchall()
-                    tags = '; '.join([t[0] for t in tagList])
-                    updateValues(values, catname, tags)
-
-                self.model.insertRows(self.model.rowCount(), 0,
-                                      Photo(self.fields, values, thumb))
-
-                msg = 'Importing Photo %d of %d' % (k, count)
-                self.statusbar.showMessage(msg)
-
-                # Allow the application to stay responsive and show the progress
-                QtGui.QApplication.processEvents()
-
-            # Restore the table geometry
-            q_geo = 'SELECT AlbumTableState from AppData'
-            cur.execute(q_geo)
-            geometry = cur.fetchone()
-            if geometry:
-                hh = self.horizontalHeader
-                hh.restoreState(QtCore.QByteArray(str(geometry[0])))
+        # Restore the table geometry
+        if geometry:
+            hh = self.horizontalHeader
+            hh.restoreState(QtCore.QByteArray(str(geometry)))
 
         self.statusbar.showMessage('Finished Loading', 4000)
         self.setWidthHeight()
@@ -797,6 +709,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
         self.view.rehideColumns()
+        self.updateWindowTitle()
 
     @QtCore.pyqtSlot()
     def on_newField(self):
@@ -878,19 +791,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     def iconSize(self):
         size = self.view.iconSize()
         return max(size.width(), size.height())
-
-
-def compareRelease(a, b):
-    """Compares two release numbers. Returns 0 if versions are the same, -1 if
-    the a is older than b and 1 if a is newer than b"""
-    a = parse_version(re.sub('\(.*?\)', '', a))
-    b = parse_version(re.sub('\(.*?\)', '', b))
-    if a < b:
-        return -1
-    elif a == b:
-        return 0
-    else:
-        return 1
 
 
 if __name__ == "__main__":

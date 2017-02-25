@@ -261,7 +261,7 @@ if __name__ == "__main__":
             self.empty = Photo()
             self.field = FieldObject('Field1')
             self.field2 = FieldObject('Field2')
-            self.field3 = FieldObject('IntField', typ=int)
+            self.field3 = FieldObject('IntField')
             self.dateField = FieldObject('Date')
             self.photo = Photo([self.field, self.field2, self.field3, self.dateField],
                                ['meta1', 'meta2', 1, '2017:01:01 00:00:01'])
