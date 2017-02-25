@@ -32,6 +32,28 @@ class PhotoDatabase(object):
     #  Query Methods  #
     ###################
 
+    def dropField(self, name):
+        """ Drop a category from the database. All tags associated with that
+        category will be removed
+
+        Arguments:
+            name (str): The name of the category to remove
+        """
+        with self.connect() as con:
+            idq = 'SELECT CatId from Categories WHERE Name == ?'
+            CatId = con.execute(idq, (name,)).fetchone()
+            if CatId is None:
+                return
+            dmq = ('DELETE FROM TagMap WHERE TagId IN '
+                   '(SELECT TagId FROM Tags WHERE CatId == ?)')
+            con.execute(dmq, CatId)
+            dtq = 'DELETE FROM Tags WHERE CatId == ?'
+            con.execute(dtq, CatId)
+            dmq = 'DELETE FROM Categories WHERE CatId == ?'
+            con.execute(dmq, CatId)
+            dfq = 'DELETE FROM Fields WHERE Name == ?'
+            con.execute(dfq, (name,))
+
     def getTableAsDict(self, table, onePer=True):
         """ Get the values of a table as a list of dictionaries
 
@@ -118,16 +140,21 @@ class PhotoDatabase(object):
 
 if __name__ == "__main__":
 #     from create_database import create_database
-    dbfile = 'Fresh.pdb'
+    dbfile = 'FreshTrash.pdb'
 #     create_database(dbfile)
     db = PhotoDatabase(dbfile)
 #     db.insertField(FieldObject('People'))
 #     print db.getTableAsDict('Fields')
 #     print db.getTableAsDict('Fields', False)
-    with db.connect() as con:
-        try:
-            con.execute('INSERT INTO Tags (CatId, Value) VALUES (1, "Evelyn")')
-        except sqlite3.IntegrityError:
-            print 'failed'
-    import pdb
-    pdb.set_trace()
+
+#     with db.connect() as con:
+#         try:
+#             con.execute('INSERT INTO Tags (CatId, Value) VALUES (1, "Evelyn")')
+#         except sqlite3.IntegrityError:
+#             print 'failed'
+
+    db.dropField('Joe')
+
+
+#     import pdb
+#     pdb.set_trace()

@@ -27,6 +27,7 @@ from Dialogs import WarningDialog, warning_box, BatchTag, UndoDialog
 from database import PhotoDatabase
 from create_database import create_database
 from datetime import datetime
+import undo
 import pdb
 from pkg_resources import parse_version
 import time
@@ -835,11 +836,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         name = QtGui.QInputDialog.getText(self, 'New Field', 'Field Name')[0]
         if not name:
             return
-        self.model.insertColumns(name=str(name))
-        newfield = self.fields[-1]
-        newfield.filter = True
-        newId = self.db.insertField(newfield)
-        self.treeView.addCategory(newId, newfield.name)
+        command = undo.newFieldCmd(self, name)
+        self.undoStack.push(command)
 
     @QtCore.pyqtSlot()
     def on_openDatabase(self):

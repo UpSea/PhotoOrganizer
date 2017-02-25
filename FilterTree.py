@@ -14,7 +14,7 @@ class TagTreeView(QtGui.QTreeView):
         if self.con:
             self.con.close()
 
-    def addCategory(self, catId, catValue):
+    def addField(self, catId, catValue):
         """ Add a category item. Return the category item
 
         Arguments:
@@ -25,7 +25,7 @@ class TagTreeView(QtGui.QTreeView):
         parent = QtGui.QStandardItem(catValue)
         parent.id = catId
         model.appendRow(parent)
-        self.sortByColumn(0)
+        self.model().sort(0)
         return parent
 
     def addTag(self, cat, tagId, tagValue):
@@ -50,6 +50,14 @@ class TagTreeView(QtGui.QTreeView):
         child.setCheckState(QtCore.Qt.Unchecked)
         parent.appendRow(child)
 
+    def dropField(self, name):
+        """ Drop a field from the tree model """
+        item = self.model().sourceModel().findItems(name)
+        if len(item) != 1:
+            msg = '{} fields with name {} found'
+            raise ValueError(msg.format(len(item), name))
+        self.model().sourceModel().removeRow(item[0].row())
+
     def populateTree(self, clear=True):
         """
         Populate the tree model with tags and categories from the database
@@ -68,7 +76,7 @@ class TagTreeView(QtGui.QTreeView):
 
         # Create the items and add to model
         for cat in tags.keys():
-            parent = self.addCategory(cd[cat], cat)
+            parent = self.addField(cd[cat], cat)
             for tag in tags[cat]:
                 self.addTag(parent, *tag)
         self.model().sort(0)
@@ -242,5 +250,10 @@ if __name__ == "__main__":
     tree.show()
     tree.resize(QtCore.QSize(370, 675))
     tree.expandAll()
+    app.processEvents()
+
+    import time
+    time.sleep(2)
+    tree.dropField('Project')
 
     app.exec_()

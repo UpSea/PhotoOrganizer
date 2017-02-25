@@ -226,6 +226,15 @@ class Album(MutableSequence):
         for entry in self._entries:
             entry[self._fields[index]] = ''
 
+    def removeField(self, idx, force=False):
+        name = self._fields[idx]
+        if name.required and (not force):
+            raise AlbumError('Cannot remove required field')
+        else:
+            self._fields.pop(idx)
+            for entry in self:
+                entry.removeField(name)
+
     @property
     def defaultFields(self):
         return self._defaultFields
@@ -237,6 +246,10 @@ class Album(MutableSequence):
     @property
     def field_names(self):
         return [f.name for f in self._fields]
+
+
+class AlbumError(BaseException):
+    pass
 
 
 if __name__ == "__main__":
