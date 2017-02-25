@@ -79,14 +79,14 @@ class TagTreeView(QtGui.QTreeView):
 
     @QtCore.pyqtSlot()
     def updateTree(self):
-        """ Query the database for categories and fields and update the tree"""
+        """ Query the database for fields and update the tree"""
         con = self.con
-        # Get the categories and tags
-        catQ = 'SELECT CatId, Name FROM Categories'
+        # Get the fields and tags
+        catQ = 'SELECT FieldId, Name FROM TagFields'
         cats = con.execute(catQ).fetchall()
         cd = {c[1]: c[0] for c in cats}
 
-        tagQ = 'SELECT TagId, Value from Tags WHERE CatId == ?'
+        tagQ = 'SELECT TagId, Value from Tags WHERE FieldId == ?'
         tags = {cat[1]: [k for k in con.execute(tagQ, (cat[0],))]
                 for cat in cats}
 
@@ -107,8 +107,7 @@ class TagTreeView(QtGui.QTreeView):
             if cat.lower() in alreadyFields:
                 parent = model.findItems(cat, QtCore.Qt.MatchFixedString)
                 if len(parent) != 1:
-                    pdb.set_trace()
-                    msg = '{} categories names {} found'
+                    msg = '{} tag fields names {} found'
                     raise ValueError(msg.format(len(parent), cat))
                 parent = parent[0]
                 alreadyTags = [str(parent.child(r).text()).lower()
@@ -191,9 +190,12 @@ class TagItemModel(QtGui.QStandardItemModel):
         if checkedTags:
             # Query for filtered tags
             tagstr = ','.join(['?']*len(checkedTags))
-            sel = ('SELECT distinct(t.TagId) FROM Tags as t '+
-                   'JOIN TagMap as tm ON t.TagId == tm.TagId '+
-                   'WHERE t.CatId == ? '+
+            # This query finds how many of the given tags are associated with
+            # each file that has any of the tags. Those file ids are then used
+            # to narrow the search for tag ids for a given field
+            # I'm not sure I'm explaining that well
+            sel = ('SELECT distinct(TagId) FROM AllTags '+
+                   'WHERE FieldId == ? '+
                    'AND FilId in (SELECT FilId FROM '+
                    '(SELECT FilId, count(FilId) as cnt FROM TagMap '+
                    'WHERE TagId in ({}) '+

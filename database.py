@@ -52,14 +52,14 @@ class PhotoDatabase(QtCore.QObject):
             name (str): The name of the category to remove
         """
         with self.connect() as con:
-            idq = 'SELECT CatId from Categories WHERE Name == ?'
+            idq = 'SELECT FieldId from TagFields WHERE Name == ?'
             CatId = con.execute(idq, (name,)).fetchone()
             if CatId is None:
                 return
             dmq = ('DELETE FROM TagMap WHERE TagId IN '
-                   '(SELECT TagId FROM Tags WHERE CatId == ?)')
+                   '(SELECT TagId FROM Tags WHERE FieldId == ?)')
             con.execute(dmq, CatId)
-            dtq = 'DELETE FROM Tags WHERE CatId == ?'
+            dtq = 'DELETE FROM Tags WHERE FieldId == ?'
             con.execute(dtq, CatId)
             dfq = 'DELETE FROM Fields WHERE Name == ?'
             con.execute(dfq, (name,))
@@ -70,7 +70,8 @@ class PhotoDatabase(QtCore.QObject):
 
         Arguments:
             onePer (bool): (True) If False, the output is one dictionary with
-                the values of each column grouped in a list under the field key
+                the values of each column grouped in a list under the field key.
+                Otherwise it is a list of dictionaries with column/value pairs
         """
         q = 'SELECT * FROM {}'.format(table)
         close = False if con else True
@@ -126,7 +127,7 @@ class PhotoDatabase(QtCore.QObject):
         else:
             params = catIds
 
-        q = 'INSERT INTO Tags (CatId, Value) VALUES (?,?)'
+        q = 'INSERT INTO Tags (FieldId, Value) VALUES (?,?)'
         with self.connect() as con:
             ids = []
             for param in params:
@@ -176,14 +177,12 @@ class PhotoDatabase(QtCore.QObject):
             fields = album.fields
 
             # Define the tag query string
-            tqry = 'SELECT t.Value FROM File as f '+\
-                   'JOIN TagMap as tm ON f.FilId == tm.FilId '+\
-                   'JOIN Tags as t ON tm.TagId == t.TagId '+\
-                   'JOIN Categories as c ON t.CatId == c.CatId '+\
-                   'WHERE f.FilId == ? and c.Name == ?'
+            tqry = 'SELECT Value FROM AllTags '+\
+                   'WHERE FilId == ? and Field == ?'
 
-            # Get the categories and their fields
-            categories = self.getTableAsDict('Categories', con, onePer=True)
+            # Get the tag field names and their fields
+            tfq = 'SELECT Name from TagFields'
+            tagFields = [k[0] for k in con.execute(tfq)]
 
             # Get the Photos and populate the Album
             cur2 = con.cursor()
@@ -219,13 +218,12 @@ class PhotoDatabase(QtCore.QObject):
                 updateValues(values, 'Tagged', tagged)
                 updateValues(values, 'Import Date', insertDate)
 
-                for cat in categories:
-                    # Get the tags and group with categories
-                    catname = cat['Name']
-                    cur2.execute(tqry, [fileId, catname])
+                for fieldName in tagFields:
+                    # Get the tags and group with their fields
+                    cur2.execute(tqry, [fileId, fieldName])
                     tagList = cur2.fetchall()
                     tags = '; '.join([t[0] for t in tagList])
-                    updateValues(values, catname, tags)
+                    updateValues(values, fieldName, tags)
 
                 album.append(Photo(fields, values, thumb))
 
@@ -311,15 +309,15 @@ class PhotoDatabase(QtCore.QObject):
 
         delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
                   "(SELECT lower(Value) FROM Tags as t WHERE "+\
-                  "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
+                  "t.TagId == TagMap.TagId AND t.FieldId == ?) "+\
                   "NOT IN ({})"
         delMaps = []
 
-        # Current categories and tags
+        # Current fields and tags
         with self.connect() as con:
-            # Get the category fields by ID and Column
+            # Get the tag fields by ID and Column
             fieldstr = ','.join([str('\''+k+'\'') for k in fieldnames])
-            catQ = 'SELECT Name, CatId from Categories WHERE Name in (%s)' % fieldstr
+            catQ = 'SELECT Name, FieldId from TagFields WHERE Name in (%s)' % fieldstr
 
             res = con.execute(catQ).fetchall()
             allCatDict = dict(res)
@@ -327,7 +325,7 @@ class PhotoDatabase(QtCore.QObject):
 
             # Get all tags for each category
             catstr = ','.join([str(k) for k in catIds])
-            tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
+            tagQ = 'SELECT FieldId, TagId, Value FROM Tags WHERE FieldId IN (%s)' % catstr
             alltags_before = con.execute(tagQ).fetchall()
 
         # Loop over each index in the range and prepare for database calls

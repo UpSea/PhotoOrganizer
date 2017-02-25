@@ -23,20 +23,29 @@ CREATE TABLE Fields (FieldId INTEGER PRIMARY KEY AUTOINCREMENT,
                      Tags Integer,
                      UNIQUE (Name));
 
-CREATE VIEW Categories AS
-    SELECT FieldId as CatId, Name FROM Fields WHERE Tags == 1;
-
 CREATE TABLE Tags (TagId INTEGER PRIMARY KEY AUTOINCREMENT,
-                   CatId INTEGER,
+                   FieldId INTEGER,
                    Value TEXT,
-                   FOREIGN KEY (CatId) REFERENCES Fields(FieldId),
-                   UNIQUE (CatId, Value COLLATE NOCASE));
+                   FOREIGN KEY (FieldId) REFERENCES Fields(FieldId),
+                   UNIQUE (FieldId, Value COLLATE NOCASE));
 
 CREATE TABLE TagMap(FilId INTEGER,
                     TagId INTEGER,
                     FOREIGN KEY(FilId) REFERENCES File(FilId),
                     FOREIGN KEY(TagId) REFERENCES Tags(TagId),
                     UNIQUE (FilId, TagId));
+
+CREATE VIEW TagFields AS
+    SELECT * FROM Fields WHERE Tags == 1;
+
+CREATE VIEW TagList AS
+    SELECT t.*, c.Name as Field FROM Tags as t
+    JOIN TagFields AS c ON c.FieldId == t.FieldId;
+
+CREATE VIEW AllTags AS
+    SELECT m.FilId, t.* FROM TagList as t
+    JOIN TagMap as m ON m.TagId == t.TagId
+    ORDER BY m.FilId, t.TagId;
 
 CREATE TABLE AppData (AppFileVersion TEXT,
                       BuildDate TEXT,
