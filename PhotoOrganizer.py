@@ -30,7 +30,6 @@ from datetime import datetime
 import undo
 import pdb
 from pkg_resources import parse_version
-import time
 
 
 class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
@@ -43,6 +42,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.db = PhotoDatabase(dbfile)
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
+        self.treeView.setHidden(True)
 
         # Setup application organization and application name
         app = QtGui.QApplication.instance()
@@ -113,6 +113,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeProxy.setSourceModel(self.treeModel)
         self.treeProxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.treeView.setModel(self.treeProxy)
+        self.treeView.setDb(self.db)
 
         # Signal Connections
         self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
@@ -136,6 +137,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeModel.dataChanged.connect(self.on_treeDataChanged)
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
         self.actionUndoList.triggered.connect(self.on_undoList)
+        self.db.newDatabase.connect(self.treeView.newConnection)
+        self.db.databaseChanged.connect(self.treeView.updateTree)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -164,7 +167,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Restore the database
         dbfile = self.databaseFile or settings.value("lastDatabase").toString()
         if dbfile:
-            self.openDatabase(str(dbfile), False)
+            self.openDatabase(str(dbfile))
 
     def closeEvent(self, event):
         """ Re-implemented to save settings """
@@ -189,40 +192,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.imageViewer.close()
         self.undoDialog.close()
 
-        # Save fields
         if self.databaseFile is None:
             return
 
-        field_props = FieldObjectContainer.fieldProps
-        props = ', '.join(field_props)
-        i = 'INSERT INTO Fields ({}) VALUES (?,?,?,?,?,?,?)'.format(props)
-        with self.db.connect() as con:
-            cur = con.execute('SELECT Name FROM Fields')
-            dbfields = [k[0] for k in cur]
-            uparams = ', '.join(['{} = ?'.format(k) for k in field_props])
-            u = ('UPDATE Fields SET {} WHERE Name=?'.format(uparams))
-            icommands = []
-            ucommands = []
-            for f in self.fields:
-                values = [f.name, f.required, f.editor, f.editable,
-                          f.name_editable, f.hidden, f.filter]
-                if f.name in dbfields:
-                    ucommands.append(values+[f.name])
-                else:
-                    icommands.append(values)
-            # Execute many for speed
-            if icommands:
-                con.executemany(i, icommands)
-            if ucommands:
-                con.executemany(u, ucommands)
-
-            # Remove deleted fields
-            df = [k for k in dbfields if k not in self.fields.names]
-            dcommands = []
-            for f in df:
-                dcommands.append((f,))
-            if dcommands:
-                con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
+        # Save fields
+        self.db.setFields(self.fields)
 
         # Save database-specific settings
         self.saveAppData()
@@ -344,7 +318,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.setWidthHeight()
         self.clearFilters()
 
-    def openDatabase(self, dbfile, close=False):
+    def openDatabase(self, dbfile):
         """ Open a database file and populate the album table
 
         Arguments:
@@ -376,13 +350,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 return
 
             # Close the exiting database
-            if close:
-                self.closeDatabase()
+            self.closeDatabase()
 
             # Make sure table is visible
             if self.view.isHidden():
                 self.mainWidget.setHidden(False)
                 self.view.setHidden(False)
+                self.treeView.setHidden(False)
                 self.labelNoDatabase.setHidden(True)
                 self.labelNoPhotos.setHidden(True)
 
@@ -479,8 +453,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.view.rehideColumns()
         self.updateWindowTitle()
 
-        self.treeView.setDb(self.db)
-        self.treeView.updateTree()
         self.treeView.expandAll()
 
     ######################
@@ -718,7 +690,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             con.execute(q)
 
         self.treeView.updateTree()
-
         self.proxy.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
@@ -777,6 +748,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         if folder:
             if self.view.isHidden():
                 self.view.setHidden(False)
+                self.treeView.setHidden(False)
                 self.labelNoPhotos.setHidden(True)
             self.importFolder(str(folder), self.databaseFile)
 
@@ -810,6 +782,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Create the database and show the main widget
         dbfile = str(QtCore.QDir.toNativeSeparators(filename))
+        self.closeDatabase()
+        if os.path.exists(dbfile):
+            os.remove(dbfile)
         create_database(dbfile)
 
         # Re-set the dataset
@@ -817,6 +792,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Store the database and set up window/menus
         self.db.setDatabaseFile(dbfile)
+        self.db.setFields(self.fields)
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)

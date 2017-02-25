@@ -66,8 +66,7 @@ class TagTreeView(QtGui.QTreeView):
             db (PhotoDatabase)
         """
         self.db = db
-        self.con = db.connect()
-        self.model().sourceModel().con = self.con
+        self.newConnection()
 
     def uncheckAll(self):
         """ Uncheck all items """
@@ -78,6 +77,7 @@ class TagTreeView(QtGui.QTreeView):
                 child = parent.child(c)
                 child.setCheckState(False)
 
+    @QtCore.pyqtSlot()
     def updateTree(self):
         """ Query the database for categories and fields and update the tree"""
         con = self.con
@@ -131,6 +131,13 @@ class TagTreeView(QtGui.QTreeView):
                     self.addTag(parent, *tag)
 
         self.model().sort(0)
+
+    @QtCore.pyqtSlot()
+    def newConnection(self):
+        self.con = self.db.connect()
+        if self.con:
+            self.model().sourceModel().con = self.con
+            self.updateTree()
 
 
 class TagItemModel(QtGui.QStandardItemModel):

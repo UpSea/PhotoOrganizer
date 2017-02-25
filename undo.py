@@ -19,11 +19,10 @@ class newFieldCmd(QtGui.QUndoCommand):
         self.main.model.insertColumns(name=name)
         newfield = self.main.fields[-1]
         newfield.filter = True
+        newfield.tags = True
         self.main.db.insertField(newfield)
-        self.main.treeView.updateTree()
 
     def undo(self):
         col = self.main.fields.index(self.name)
         self.main.db.dropField(self.name)
         self.main.model.removeColumns(col)
-        self.main.treeView.updateTree()

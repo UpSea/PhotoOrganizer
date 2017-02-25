@@ -21,7 +21,9 @@ class FieldObject(object):
         editable (bool):  (True) Whether or not the field is editable
         name_editable (bool):  (True) Whether or not the field name is editable
         hidden (bool):  (False) Whether or not the field is hidden
-        filt (bool): (False) Whether or not to apply the regex filter to this field
+        filt (bool): (False) Whether or not to apply the regex filter to this
+            field
+        tags (bool): (False) Whether or not the field contains tags
     """
 
     # Editor Enumeration
@@ -32,7 +34,7 @@ class FieldObject(object):
 
     def __init__(self, name, required=False, editor=LineEditEditor,
                  editable=True, name_editable=True, hidden=False,
-                 filt=False):
+                 filt=False, tags=False):
         self._name = name
         self.required = required
         self._editor = editor
@@ -40,6 +42,7 @@ class FieldObject(object):
         self._hidden = hidden
         self.name_editable = name_editable
         self.filter = filt
+        self.tags = tags
 
     def __repr__(self):
         return '<FieldObject: %s>' % self.name
@@ -104,14 +107,18 @@ class FieldObjectContainer(MutableSequence):
             hidden
         filt (list[bool]): ([False]) A list indicating whether each field
             should be included in the regex filter
+        tags (list[bool]): (False) Whether or not the field contains tags
     """
 
+    # Define a list of properties for use when storing to database
+    # In the future, this could be used with **kwargs and a simpler way of
+    # Assigning properties
     fieldProps = ['Name', 'Required', 'Editor', 'Editable',
-                  'Name_Editable', 'Hidden', 'Filt']
+                  'Name_Editable', 'Hidden', 'Filt', 'Tags']
 
     def __init__(self, name=None, required=None, editor=None,
                  editable=None, name_editable=None, hidden=None,
-                 filt=None):
+                 filt=None, tags=None):
         if name is None:
             self._fieldobjs = []
         else:
@@ -128,9 +135,10 @@ class FieldObjectContainer(MutableSequence):
                 name_editable = name_editable or [True]*len(name)
                 hidden = hidden or [False]*nfields
                 filts = filt or [False]*nfields
+                tags = tags or [False]*nfields
                 inputs = zip(name, required, editor, editable,
-                             name_editable, hidden, filts)
-                self._fieldobjs = [FieldObject(*kwargs) for kwargs in inputs]
+                             name_editable, hidden, filts, tags)
+                self._fieldobjs = [FieldObject(*args) for args in inputs]
             elif all(all_objs):
                 # Store the input list
                 self._fieldobjs = name

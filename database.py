@@ -1,21 +1,28 @@
 """ A module for interacting with the photo database file """
 import sqlite3
 from datastore import FieldObjectContainer, FieldObject
+from PyQt4 import QtCore
 
 
-class PhotoDatabase(object):
+class PhotoDatabase(QtCore.QObject):
     """ A class for connecting to and querying a photo database
 
     Arguments:
         dbfile (str): (None) The path to the database file
     """
 
+    newDatabase = QtCore.pyqtSignal()
+    databaseChanged = QtCore.pyqtSignal()
+
     def __init__(self, dbfile=None):
+        super(PhotoDatabase, self).__init__()
         self.setDatabaseFile(dbfile)
 
     def connect(self, dbfile=None):
         """ Create a database connection """
         dbfile = dbfile or self.dbfile
+        if dbfile is None:
+            return
         con = sqlite3.connect(dbfile)
         con.execute('pragma foreign_keys = 1')
         return con
@@ -27,6 +34,8 @@ class PhotoDatabase(object):
             dbfile (str): The path to the database file
         """
         self._dbfile = dbfile
+        if dbfile:
+            self.newDatabase.emit()
 
     ###################
     #  Query Methods  #
@@ -49,10 +58,9 @@ class PhotoDatabase(object):
             con.execute(dmq, CatId)
             dtq = 'DELETE FROM Tags WHERE CatId == ?'
             con.execute(dtq, CatId)
-            dmq = 'DELETE FROM Categories WHERE CatId == ?'
-            con.execute(dmq, CatId)
             dfq = 'DELETE FROM Fields WHERE Name == ?'
             con.execute(dfq, (name,))
+        self.databaseChanged.emit()
 
     def getTableAsDict(self, table, onePer=True):
         """ Get the values of a table as a list of dictionaries
@@ -80,16 +88,17 @@ class PhotoDatabase(object):
         assert(isinstance(fieldobj, FieldObject))
         field_props = FieldObjectContainer.fieldProps
         props = ', '.join(field_props)
-        i = 'INSERT INTO Fields ({}) VALUES (?,?,?,?,?,?,?)'.format(props)
+        params = ','.join(['?']*len(field_props))
+        i = 'INSERT INTO Fields ({}) VALUES ({})'.format(props, params)
         values = [fieldobj.name, fieldobj.required, fieldobj.editor,
                   fieldobj.editable, fieldobj.name_editable, fieldobj.hidden,
-                  fieldobj.filter]
-        c = 'INSERT INTO Categories (Name) VALUES (?)'
+                  fieldobj.filter, fieldobj.tags]
         with self.connect() as con:
             # Add the field
-            con.execute(i, values)
-            newId = con.execute(c, (fieldobj.name,)).lastrowid
-            return newId
+            newId = con.execute(i, values).lastrowid
+
+        self.databaseChanged.emit()
+        return newId
 
     def insertTags(self, catIds, tagValues=None):
         """ Insert a new tag. Return the id of the new tag
@@ -115,10 +124,53 @@ class PhotoDatabase(object):
                     # Probably failed unique constraint, ignore because tag
                     # already exists for cat
                     pass
+        self.databaseChanged.emit()
         return ids
 
-    def updateTagged(self, FileIds, tagged):
+    def setFields(self, fields):
+        """ Set the fields table to the given FieldContainerObjects
+
+        Existing fields are updated, new fields are inserted and missing fields
+        are deleted
+
+        Arguments:
+            fields (FieldObjectContainer)
         """
+        field_props = fields.fieldProps
+        props = ', '.join(field_props)
+        params = ','.join(['?']*len(field_props))
+        i = 'INSERT INTO Fields ({}) VALUES ({})'.format(props, params)
+        with self.connect() as con:
+            cur = con.execute('SELECT Name FROM Fields')
+            dbfields = [k[0] for k in cur]
+            uparams = ', '.join(['{} = ?'.format(k) for k in field_props])
+            u = ('UPDATE Fields SET {} WHERE Name=?'.format(uparams))
+            icommands = []
+            ucommands = []
+            for f in fields:
+                values = [f.name, f.required, f.editor, f.editable,
+                          f.name_editable, f.hidden, f.filter, f.tags]
+                if f.name in dbfields:
+                    ucommands.append(values+[f.name])
+                else:
+                    icommands.append(values)
+            # Execute many for speed
+            if icommands:
+                con.executemany(i, icommands)
+            if ucommands:
+                con.executemany(u, ucommands)
+
+            # Remove deleted fields
+            df = [k for k in dbfields if k not in fields.names]
+            dcommands = []
+            for f in df:
+                dcommands.append((f,))
+            if dcommands:
+                con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
+        self.databaseChanged.emit()
+
+    def updateTagged(self, FileIds, tagged):
+        """ Update the tagged status for the given files
 
         Arguments:
             FileIds ([int], int)

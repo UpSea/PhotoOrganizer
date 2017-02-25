@@ -1,9 +1,3 @@
-DROP TABLE IF EXISTS TagMap;
-DROP TABLE IF EXISTS Tags;
-DROP TABLE IF EXISTS Categories;
-DROP TABLE IF EXISTS Fields;
-DROP TABLE IF EXISTS File;
-DROP TABLE IF EXISTS Database;
 CREATE TABLE Database(Name TEXT);
 INSERT INTO Database VAlUES (NULL);
 
@@ -26,18 +20,16 @@ CREATE TABLE Fields (FieldId INTEGER PRIMARY KEY AUTOINCREMENT,
                      Hidden INTEGER,
                      Type TEXT,
                      Filt INTEGER,
+                     Tags Integer,
                      UNIQUE (Name));
 
-CREATE TABLE Categories (CatId INTEGER PRIMARY KEY AUTOINCREMENT,
-                         Name TEXT,
-                         Plural INTEGER,
-                         FOREIGN KEY (Name) REFERENCES Fields(Name),
-                         UNIQUE (Name COLLATE NOCASE));
+CREATE VIEW Categories AS
+    SELECT FieldId as CatId, Name FROM Fields WHERE Tags == 1;
 
 CREATE TABLE Tags (TagId INTEGER PRIMARY KEY AUTOINCREMENT,
                    CatId INTEGER,
                    Value TEXT,
-                   FOREIGN KEY (CatId) REFERENCES Categories(CatId),
+                   FOREIGN KEY (CatId) REFERENCES Fields(FieldId),
                    UNIQUE (CatId, Value COLLATE NOCASE));
 
 CREATE TABLE TagMap(FilId INTEGER,
@@ -46,7 +38,6 @@ CREATE TABLE TagMap(FilId INTEGER,
                     FOREIGN KEY(TagId) REFERENCES Tags(TagId),
                     UNIQUE (FilId, TagId));
 
-DROP TABLE IF EXISTS AppData;
 CREATE TABLE AppData (AppFileVersion TEXT,
                       BuildDate TEXT,
                       LastClosed DATETIME,
