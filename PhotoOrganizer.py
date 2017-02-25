@@ -136,8 +136,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeModel.dataChanged.connect(self.on_treeDataChanged)
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
         self.actionUndoList.triggered.connect(self.on_undoList)
-        self.actionUndo.triggered.connect(self.undoStack.undo)
-        self.actionRedo.triggered.connect(self.undoStack.redo)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
