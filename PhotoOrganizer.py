@@ -480,7 +480,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.updateWindowTitle()
 
         self.treeView.setDb(self.db)
-        self.treeView.populateTree()
+        self.treeView.updateTree()
         self.treeView.expandAll()
 
     ######################
@@ -717,13 +717,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 '(SELECT TagId FROM TagMap)'
             con.execute(q)
 
-            # Update the tree
-            tagQ2 = 'SELECT TagId, Value FROM Tags WHERE CatId == ?'
-            alltags_final = dict()
-            for catId in catIds:
-                alltags_final[catId] = con.execute(tagQ2, (catId,)).fetchall()
-
-            self.treeView.updateTree(alltags_final)
+        self.treeView.updateTree()
 
         self.proxy.invalidate()
 
@@ -833,6 +827,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Add a new field to the database and table """
         name = QtGui.QInputDialog.getText(self, 'New Field', 'Field Name')[0]
         if not name:
+            return
+        if name.toLower() in [k.lower() for k in self.field_names]:
+            msg = 'Duplicate field "{}"'.format(name)
+            warning_box(msg, self)
             return
         command = undo.newFieldCmd(self, name)
         self.undoStack.push(command)

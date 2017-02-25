@@ -1,5 +1,6 @@
 from PyQt4 import QtCore, QtGui
 from database import PhotoDatabase
+import pdb
 
 
 class TagTreeView(QtGui.QTreeView):
@@ -58,29 +59,6 @@ class TagTreeView(QtGui.QTreeView):
             raise ValueError(msg.format(len(item), name))
         self.model().sourceModel().removeRow(item[0].row())
 
-    def populateTree(self, clear=True):
-        """
-        Populate the tree model with tags and categories from the database
-        """
-        if clear:
-            self.model().sourceModel().clear()
-        con = self.con
-        # Get the categories and tags
-        catQ = 'SELECT CatId, Name FROM Categories'
-        cats = con.execute(catQ).fetchall()
-        cd = {c[1]: c[0] for c in cats}
-
-        tagQ = 'SELECT TagId, Value from Tags WHERE CatId == ?'
-        tags = {cat[1]: [k for k in con.execute(tagQ, (cat[0],))]
-                for cat in cats}
-
-        # Create the items and add to model
-        for cat in tags.keys():
-            parent = self.addField(cd[cat], cat)
-            for tag in tags[cat]:
-                self.addTag(parent, *tag)
-        self.model().sort(0)
-
     def setDb(self, db):
         """ Set the database object
 
@@ -100,44 +78,58 @@ class TagTreeView(QtGui.QTreeView):
                 child = parent.child(c)
                 child.setCheckState(False)
 
-    def updateTree(self, catTagDict):
-        """ Update tags for specific categories
+    def updateTree(self):
+        """ Query the database for categories and fields and update the tree"""
+        con = self.con
+        # Get the categories and tags
+        catQ = 'SELECT CatId, Name FROM Categories'
+        cats = con.execute(catQ).fetchall()
+        cd = {c[1]: c[0] for c in cats}
 
-        For each category represented in the dict, new tags will be added to
-        the tree, and tags that don't appear in the given dict will be removed
-        from the tree. Categories that aren't represented are ignored
+        tagQ = 'SELECT TagId, Value from Tags WHERE CatId == ?'
+        tags = {cat[1]: [k for k in con.execute(tagQ, (cat[0],))]
+                for cat in cats}
 
-        Arguments:
-            catTagList {int: [tup]}:  A dict of lists of tuples (or lists) each
-                of which contains a TagId and Tag Value. The dict keys
-                are field or category IDs.
-        """
+        # Get the fields already in the tree
         model = self.model().sourceModel()
-        catIds = model.catIds()
-        # Add each new tag
-        for cid, taglist in catTagDict.iteritems():
-            parent = model.item(catIds.index(cid))
-            for tid, tv in taglist:
-                # Get the parent item and list of tag ids
-                tagIds = [parent.child(k).id for k in range(parent.rowCount())]
-                # Add tags that don't exist in tree
-                if tid not in tagIds:
-                    self.addTag(parent, tid, tv)
+        alreadyFields = [str(model.item(r).text()).lower() for r in range(model.rowCount())]
 
-        # Remove tags that aren't in the list
-        newCats = catTagDict.keys()
-        newDex = [catIds.index(k) for k in newCats]
-        newIdPairs = [(c, k[0]) for c, taglist in catTagDict.iteritems()
-                      for k in taglist]
-        # Loop over each category to update
-        for c in newDex:
-            cat = model.item(c)
-            # Loop over each tag in reverse order so that removals don't affect
-            # subsequent iterations
-            for t in range(cat.rowCount()-1, -1, -1):
-                tag = cat.child(t)
-                if (cat.id, tag.id) not in newIdPairs:
-                    cat.removeRow(t)
+        # Remove deleted fields
+        currentFields = [c[1].lower() for c in cats]
+        for k in range(len(alreadyFields)-1, -1, -1):
+            oldTag = alreadyFields[k]
+            if oldTag not in currentFields:
+                model.removeRow(k)
+
+        # Create the items and add to model
+        for cat in tags.keys():
+
+            if cat.lower() in alreadyFields:
+                parent = model.findItems(cat, QtCore.Qt.MatchFixedString)
+                if len(parent) != 1:
+                    pdb.set_trace()
+                    msg = '{} categories names {} found'
+                    raise ValueError(msg.format(len(parent), cat))
+                parent = parent[0]
+                alreadyTags = [str(parent.child(r).text()).lower()
+                               for r in range(parent.rowCount())]
+
+                # Remove deleted tags
+                currentTags = [k[1].lower() for k in tags[cat]]
+                for k in range(len(alreadyTags)-1, -1, -1):
+                    oldTag = alreadyTags[k]
+                    if oldTag not in currentTags:
+                        parent.removeRow(k)
+            else:
+                # Add the new field
+                parent = self.addField(cd[cat], cat)
+                alreadyTags = []
+
+            # Add new tags
+            for tag in tags[cat]:
+                if tag[1].lower() not in alreadyTags:
+                    self.addTag(parent, *tag)
+
         self.model().sort(0)
 
 
@@ -234,6 +226,7 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
 
 if __name__ == "__main__":
     dbfile = 'v0.2.pdb'
+    dbfile = 'FreshTrash.pdb'
     db = PhotoDatabase(dbfile)
 
     app = QtGui.QApplication([])
@@ -250,10 +243,13 @@ if __name__ == "__main__":
     tree.show()
     tree.resize(QtCore.QSize(370, 675))
     tree.expandAll()
-    app.processEvents()
+#     app.processEvents()
 
-    import time
-    time.sleep(2)
-    tree.dropField('Project')
+#     import time
+#     time.sleep(2)
+#     tree.dropField('Project')
 
-    app.exec_()
+#     import pdb
+#     pdb.set_trace()
+#
+#     app.exec_()
