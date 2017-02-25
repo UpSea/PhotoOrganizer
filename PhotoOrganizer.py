@@ -203,13 +203,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     def saveAppData(self):
         """ Save database-specific settings """
-        if self.databaseFile is None:
-            return
-        with self.db.connect() as con:
-            cur = con.cursor()
-            q = ('UPDATE AppData SET AppFileVersion=?, AlbumTableState=?')
-            headerState = sqlite3.Binary(self.horizontalHeader.saveState())
-            cur.execute(q, (__release__, headerState))
+        headerState = sqlite3.Binary(self.horizontalHeader.saveState())
+        kwargs = {'AppFileVersion': __release__,
+                  'AlbumTableState': headerState}
+        self.db.updateAppData(**kwargs)
 
     ########################
     #   Album Operations   #
@@ -516,7 +513,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             fieldnames (list): A list of field names
         """
         QtGui.qApp.processEvents()
-        self.db.update(self.album, fileIds, fieldnames)
+        self.db.updateAlbum(self.album, fileIds, fieldnames)
 
         self.treeView.updateTree()
         self.proxy.invalidate()

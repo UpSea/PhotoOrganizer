@@ -277,24 +277,24 @@ class PhotoDatabase(QtCore.QObject):
                 con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
         self.databaseChanged.emit()
 
-    def updateTagged(self, FileIds, tagged):
-        """ Update the tagged status for the given files
+    def updateAppData(self, **kwargs):
+        """ Save database-specific settings
 
         Arguments:
-            FileIds ([int], int)
-            tagged ([bool], bool)
+            Any name/value pair(s) where name is a valid AppData column
         """
-        if isinstance(FileIds, int):
-            FileIds = [FileIds]
-        if isinstance(tagged, bool):
-            tagged = [tagged]
-
-        q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
+        if self.dbfile is None:
+            return
+        setCols = ','.join(['{}=?'.format(k) for k in kwargs.keys()])
+        q = 'UPDATE AppData SET ' + setCols
         with self.connect() as con:
-            return con.executemany(q, zip(tagged, FileIds)).rowcount
+            con.execute(q, kwargs.values())
 
-    def update(self, album, fileIds, fieldnames):
+    def updateAlbum(self, album, fileIds, fieldnames):
         """ Update the database when user changes data
+
+        Generally Called by the slot for the model's albumChanged signal.
+        Arguments are what they are because of what that signal contains
 
         Arguments:
             album (Album): The album to which the database should be updated
@@ -389,6 +389,22 @@ class PhotoDatabase(QtCore.QObject):
             q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
                 '(SELECT TagId FROM TagMap)'
             con.execute(q)
+
+    def updateTagged(self, FileIds, tagged):
+        """ Update the tagged status for the given files
+
+        Arguments:
+            FileIds ([int], int)
+            tagged ([bool], bool)
+        """
+        if isinstance(FileIds, int):
+            FileIds = [FileIds]
+        if isinstance(tagged, bool):
+            tagged = [tagged]
+
+        q = 'UPDATE File SET Tagged = ? WHERE FilId == ?'
+        with self.connect() as con:
+            return con.executemany(q, zip(tagged, FileIds)).rowcount
 
     @property
     def dbfile(self):
