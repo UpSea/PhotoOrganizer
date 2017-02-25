@@ -1,5 +1,5 @@
 from PyQt4 import QtCore, QtGui
-from database import PhotoDatabase
+from datastore import PhotoDatabase
 import pdb
 
 

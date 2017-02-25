@@ -19,13 +19,11 @@ from io import BytesIO
 import imagehash
 import sqlite3
 import re
-from datastore import (AlbumModel, Album, Photo, FieldObjectContainer,
-                       FieldObject, AlbumDelegate, AlbumSortFilterModel)
+from datastore import (AlbumModel, Album, Photo, FieldObject, AlbumDelegate,
+                       AlbumSortFilterModel, PhotoDatabase, create_database)
 from PhotoViewer import ImageViewer
 from FilterTree import TagItemModel, TagFilterProxyModel
 from Dialogs import WarningDialog, warning_box, BatchTag, UndoDialog
-from database import PhotoDatabase
-from create_database import create_database
 from datetime import datetime
 import undo
 import pdb

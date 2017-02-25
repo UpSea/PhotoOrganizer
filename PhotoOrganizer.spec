@@ -24,7 +24,8 @@ def add_folder(datas, folder, exe_root):
                 datas += [(exe_path, local_path, 'DATA')]
 
 add_folder(a.datas, 'icons', 'icons')
-a.datas += [('create_database.sql', 'create_database.sql', 'DATA')]
+a.datas += [(r'datastore\database\create_database.sql',
+		     r'datastore\database\create_database.sql', 'DATA')]
 a.datas += [('ChangeLog.txt', 'ChangeLog.txt', 'DATA')]
 
 coll = COLLECT(exe,
