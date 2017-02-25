@@ -510,96 +510,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Update the database when user changes data
 
         Slot for model.dataChanged
+
+        Arguments:
+            fileIds (list): A list of database file ids
+            fieldnames (list): A list of field names
         """
         QtGui.qApp.processEvents()
-        # Setup variables
-        allFiles = [k.fileId for k in self.album]
-
-        # Set up batch queries
-        taggedUpdate = {'ids': [], 'vals': []}
-        tags2insert = []
-        mapParams1 = []
-
-        delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
-                  "(SELECT lower(Value) FROM Tags as t WHERE "+\
-                  "t.TagId == TagMap.TagId AND t.CatId == ?) "+\
-                  "NOT IN ({})"
-        delMaps = []
-
-        # Current categories and tags
-        with self.db.connect() as con:
-            # Get the category fields by ID and Column
-            fieldstr = ','.join([str('\''+k+'\'') for k in fieldnames])
-            catQ = 'SELECT Name, CatId from Categories WHERE Name in (%s)' % fieldstr
-
-            res = con.execute(catQ).fetchall()
-            allCatDict = dict(res)
-            catIds = allCatDict.values()
-
-            # Get all tags for each category
-            catstr = ','.join([str(k) for k in catIds])
-            tagQ = 'SELECT CatId, TagId, Value FROM Tags WHERE CatId IN (%s)' % catstr
-            alltags_before = con.execute(tagQ).fetchall()
-
-        # Loop over each index in the range and prepare for database calls
-        for fileId in fileIds:
-            for field in fieldnames:
-                # Get the index of the current cell
-                row = allFiles.index(fileId)
-                photo = self.album[row]
-                if field == self.album.taggedField:
-                    # Handle the "tagged" checkboxes
-                    taggedUpdate['vals'].append(1 if photo[field] else 0)
-                    taggedUpdate['ids'].append(fileId)
-                else:
-                    # Handle the tag cagetories
-                    # Skip any field that isn't a tag category
-                    if field not in allCatDict:
-                        # Not a "category" field
-                        continue
-                    catId = allCatDict[field]
-
-                    # Get the current tags, including changes, from the dataset
-                    cur_tags = photo.tags(field)
-                    existing = {k[2].lower(): k[1] for k in alltags_before
-                                if k[0] == catId}
-                    for tag in cur_tags:
-                        if tag.strip() == '':
-                            continue
-                        cat_tag = (catId, tag)
-                        if (tag.lower() not in existing and
-                                cat_tag not in tags2insert):
-                            # INSERT new tag
-                            tags2insert.append(cat_tag)
-                        mapParams1.append((fileId, (catId, tag.lower())))
-
-                    # Set up to remove deleted tags in this category and file
-                    params = ','.join(['?'] * len(cur_tags))
-                    q = delMapQ.format(params)
-                    delMaps.append((q, [fileId, catId] +
-                                    [k.lower() for k in cur_tags]))
-
-        # Update the tagged status and insert the new tags
-        self.db.updateTagged(taggedUpdate['ids'], taggedUpdate['vals'])
-        self.db.insertTags(tags2insert)
-        with self.db.connect() as con:
-            # Get the TagIds
-            alltags_added = con.execute(tagQ).fetchall()
-            tagIds = {(k[0], k[2].lower()): k[1] for k in alltags_added}
-            mapParams = [(k[0], tagIds[k[1]]) for k in mapParams1]
-
-            # Insert Tag mapping (ON CONFLICT IGNORE)
-            tagMapQ = 'INSERT OR IGNORE INTO TagMap (FilId, TagId) VALUES (?,?)'
-            con.executemany(tagMapQ, mapParams)
-
-            # Delete removed tags
-            for q, params in delMaps:
-                con.execute(q, params)
-
-            # Remove them unused tags
-            q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
-                '(SELECT TagId FROM TagMap)'
-            con.execute(q)
+        self.db.update(self.album, fileIds, fieldnames)
 
         self.treeView.updateTree()
         self.proxy.invalidate()
