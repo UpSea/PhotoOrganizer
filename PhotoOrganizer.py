@@ -669,7 +669,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeProxy.invalidate()
 
         # Set the line edit filter
-        tags = self.treeModel.getCheckedTagNames()
+        def addQuotes(inp):
+            return '"{}"'.format(inp) if ' ' in inp else inp
+        tags = map(addQuotes, self.treeModel.getCheckedTagNames())
         self.editFilter.setText(' '.join(tags))
 
     @QtCore.pyqtSlot()

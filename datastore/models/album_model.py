@@ -1,6 +1,5 @@
 from PyQt4 import QtCore, QtGui
 from datetime import datetime, MAXYEAR, MINYEAR
-import shlex
 import re
 
 # Place holder
@@ -342,16 +341,10 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         # Find separate pattern strings
         pat = str(self.filterRegExp().pattern())
 
-        # Remove lonely double-quotes that shlex will choke on
-        if len(re.findall('"', pat)) % 2:
-            lastq = len(pat) - 1 - pat[::-1].index('"')
-            pat = pat[:lastq] + pat[lastq+1:]
-
-        if not pat:
-            return True
-        pats = [QtCore.QRegExp(k, QtCore.Qt.CaseInsensitive,
+        PATTERN = re.compile(r'''((?:[^\s"]|"[^"]*")+)''')
+        pats = [QtCore.QRegExp(k.replace('"', ''), QtCore.Qt.CaseInsensitive,
                                QtCore.QRegExp.RegExp)
-                for k in shlex.split(pat)]
+                for k in PATTERN.split(pat)[1::2]]
 
         # Check each column for the regular expression
         out = [False]*len(pats)
