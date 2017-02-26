@@ -557,11 +557,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     def on_helpAbout(self):
         """ Create the program about menu and display it """
         mess_str = ("<b>Photo Organizer</b> v{}"
-                    "<p>Developed by Luke McNinch (lcmcinch@yahoo.com)"
-                    "<p>Python {} - Qt {} - PyQt {}")
+                    "<p>Developed by Luke McNinch (lcmcninch@yahoo.com)"
+                    "<p>Python {} - Qt {} - PyQt {} - sqlite3 {} - sqlite {}")
         mess_format = mess_str.format(__release__, platform.python_version(),
                                       QtCore.QT_VERSION_STR,
-                                      QtCore.PYQT_VERSION_STR)
+                                      QtCore.PYQT_VERSION_STR,
+                                      sqlite3.version, sqlite3.sqlite_version)
         QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
 
     @QtCore.pyqtSlot()

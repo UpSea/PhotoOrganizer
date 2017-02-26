@@ -8,7 +8,9 @@ def create_database(dbfile):
     with sqlite3.connect(dbfile) as con:
         con.execute('PRAGMA foreign_keys = 1')
         cur = con.cursor()
-        with open('create_database.sql', 'r') as fid:
+        thisDir = os.path.abspath(os.path.dirname(__file__))
+        script = os.path.join(thisDir, 'create_database.sql')
+        with open(script, 'r') as fid:
             script = fid.read()
         cur.executescript(script)
         cur.execute('UPDATE Database SET Name = ?', (dbfile,))
