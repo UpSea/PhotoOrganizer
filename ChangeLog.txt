@@ -1,3 +1,6 @@
+v0.3.1 Fix bug causing "New Database" to fail
+
+
 v0.3.0 Tree Filter improvements; Undo/Redo; New Database
 
 Updates:
