@@ -36,7 +36,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         super(PhotoOrganizer, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
-        self.db = PhotoDatabase(dbfile)
+        self.db = PhotoDatabase(dbfile, self)
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
         self.treeView.setHidden(True)
@@ -326,8 +326,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Load the database into an Album
         album, geometry = self.db.load(dbfile)
         if album in (False, None):
-            # There was an error
-            warning_box(geometry, self)
+            if geometry:
+                # There was an error
+                warning_box(geometry, self)
+            return
 
         # Close the exiting database
         self.closeDatabase()
@@ -420,11 +422,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     def updateWindowTitle(self):
         """ Set the window title """
+        title = 'Photo Organizer'
         if self.databaseFile:
-            with self.db.connect() as con:
-                cur = con.execute('SELECT Name from Database')
-                name = os.path.splitext(cur.fetchone()[0])[0]
-                self.setWindowTitle('Photo Organizer - {}'.format(name))
+            title += ' - {}'.format(self.databaseFile)
+        self.setWindowTitle(title)
 
     #####################
     #       SLOTS       #

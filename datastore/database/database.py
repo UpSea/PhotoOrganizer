@@ -2,9 +2,10 @@
 import sqlite3
 from datastore import FieldObjectContainer, FieldObject, Album, Photo
 from PyQt4 import QtGui, QtCore
-from pkg_resources import parse_version
-import re
 from io import BytesIO
+from versions import convertCheck, convertVersion
+from Dialogs import WarningDialog
+from Tkconstants import YES
 
 
 class PhotoDatabase(QtCore.QObject):
@@ -17,8 +18,8 @@ class PhotoDatabase(QtCore.QObject):
     newDatabase = QtCore.pyqtSignal()
     databaseChanged = QtCore.pyqtSignal()
 
-    def __init__(self, dbfile=None):
-        super(PhotoDatabase, self).__init__()
+    def __init__(self, dbfile=None, parent=None):
+        super(PhotoDatabase, self).__init__(parent)
         self.setDatabaseFile(dbfile)
 
     def connect(self, dbfile=None):
@@ -151,21 +152,35 @@ class PhotoDatabase(QtCore.QObject):
         # Create the query strings
         qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
-        try:
-            con = self.connect(dbfile)
-        except:
-            return (False, 'Could not open {}'.format(dbfile))
 
-        with con:
-            q = 'SELECT AppFileVersion FROM AppData'
-            try:
-                version = con.execute(q).fetchone()[0]
-            except:
-                version = 0
-            if compareRelease(version, '0.2') < 0:
-                return (False, 'This version of Photo Organizer is not ' +
-                        'compatible with the database you chose.', self)
+        # Check the file
+        st, convert, ver = convertCheck(dbfile)
+        if not st:
+            if ver == 0:
+                return (False, 'Could not open {}'.format(dbfile))
+            else:
+                msg = ('This version of Photo Organizer is not '
+                       'compatible with the database you chose ({}).')
+                return (False, msg.format(ver))
 
+        if convert:
+            dlg = WarningDialog('Old Version', self.parent())
+            dlg.setText('This file is an old version ({}) that needs to be '
+                        'converted.\nA backup copy will be saved before '
+                        'conversion.'.format(ver))
+            dlg.setQuestionText('Do you want to continue?')
+            yes = dlg.addButton(QtGui.QDialogButtonBox.Yes)
+            dlg.addButton(QtGui.QDialogButtonBox.No)
+            dlg.exec_()
+            print dlg.clickedButton() == yes
+            if dlg.clickedButton() == yes:
+                st2 = convertVersion(dbfile)
+                if not st2[0]:
+                    return False, 'File Conversion Failed\n{}'.format(st2[1])
+            else:
+                return False, None
+
+        with self.connect(dbfile) as con:
             # Get the fields and create the new Album instance
             cur = con.execute('SELECT Name, Required, Editor, Editable, '+
                               'Name_Editable, Hidden, Filt , Tags FROM Fields')
@@ -407,19 +422,6 @@ class PhotoDatabase(QtCore.QObject):
     @property
     def dbfile(self):
         return self._dbfile
-
-
-def compareRelease(a, b):
-    """Compares two release numbers. Returns 0 if versions are the same, -1 if
-    the a is older than b and 1 if a is newer than b"""
-    a = parse_version(re.sub('\(.*?\)', '', a))
-    b = parse_version(re.sub('\(.*?\)', '', b))
-    if a < b:
-        return -1
-    elif a == b:
-        return 0
-    else:
-        return 1
 
 
 if __name__ == "__main__":
