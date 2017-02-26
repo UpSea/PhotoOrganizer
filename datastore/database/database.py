@@ -172,7 +172,6 @@ class PhotoDatabase(QtCore.QObject):
             yes = dlg.addButton(QtGui.QDialogButtonBox.Yes)
             dlg.addButton(QtGui.QDialogButtonBox.No)
             dlg.exec_()
-            print dlg.clickedButton() == yes
             if dlg.clickedButton() == yes:
                 st2 = convertVersion(dbfile)
                 if not st2[0]:

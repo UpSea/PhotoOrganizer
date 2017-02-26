@@ -5,7 +5,7 @@ from shared import replace, __release__
 
 
 def _convert02to03(dbfile):
-    """ Convert files between 0.2 and 0.3 to 0.3 """
+    """ Convert files between 0.2 and 0.3 to 0.3.x """
     # Create a backup copy
     p, f = os.path.split(dbfile)
     n, e = os.path.splitext(f)

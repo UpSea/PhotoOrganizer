@@ -13,3 +13,16 @@ def compareRelease(a, b):
         return 0
     else:
         return 1
+
+
+def compareMinor(a, b):
+    """Compare two release numbers to the Minor Revision (first two digits)
+
+    Return 0 if versions are the same, -1 if a is older than b and 1 if a
+    is newer.
+    """
+    a_parts = re.sub('\(.*?\)', '', a).split('.')
+    b_parts = re.sub('\(.*?\)', '', b).split('.')
+    A = '.'.join(a_parts[:2])
+    B = '.'.join(b_parts[:2])
+    return compareRelease(A, B)

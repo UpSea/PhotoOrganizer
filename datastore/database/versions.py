@@ -1,5 +1,5 @@
 import sqlite3
-from utl import compareRelease
+from utl import compareRelease, compareMinor
 from shared import __release__
 from converters import _convert02to03
 
@@ -19,9 +19,9 @@ def convertCheck(dbfile):
         except:
             return False, None, 0
 
-    if compareRelease(fileVersion, '0.2') < 0:
+    if compareMinor(fileVersion, '0.2') < 0:
         return False, None, fileVersion
-    if compareRelease(fileVersion, __release__) < 0:
+    if compareMinor(fileVersion, __release__) < 0:
         return True, True, fileVersion
     return True, False, fileVersion
 
