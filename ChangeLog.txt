@@ -1,3 +1,20 @@
+v0.3.0 Tree Filter improvements; Undo/Redo; New Database
+
+Updates:
+- Filter tree updates when new tags and/or fields are added to
+    photos
+- Removed short delay after checking "tagged"
+- Added button to clear filters
+- Tag changes and field insertion are undoable within session
+- General code reorganization
+
+Database Change:
+- Database format changed. Categories table removed and tags
+    field added to Fields (to identify "tag" fields)
+- Handle incompatible changes with conversion
+- General code reorganization to support change
+
+
 v0.2.2 Add preliminary filter tree
 -Regex filter splits on spaces except within quotes
 -Date filter is checkable
