@@ -152,7 +152,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.on_checkDateChanged(QtCore.Qt.Checked)
         self.proxy.setDateFilterStatus(self.groupDateFilter.isChecked())
 
-    def showEvent(self, event):
+        QtCore.QTimer.singleShot(0, self.firstShow)
+
+    def firstShow(self):
         """ Re-implemented to restore window geometry when shown """
         # Restore the window geometry
         settings = QtCore.QSettings()
