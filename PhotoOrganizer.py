@@ -23,7 +23,8 @@ from datastore import (AlbumModel, Album, Photo, FieldObject, AlbumDelegate,
                        AlbumSortFilterModel, PhotoDatabase, create_database)
 from PhotoViewer import ImageViewer
 from FilterTree import TagItemModel, TagFilterProxyModel
-from Dialogs import WarningDialog, warning_box, BatchTag, UndoDialog
+from Dialogs import WarningDialog, warning_box, UndoDialog
+from BatchDialog import BatchTag
 from datetime import datetime
 import undo
 import pdb
