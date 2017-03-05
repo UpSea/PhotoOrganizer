@@ -4,16 +4,57 @@ import pdb
 
 
 class TagTreeView(QtGui.QTreeView):
-    """ A Tree View for Tags """
-    def __init__(self, parent=None):
+    """ A Tree View for Tags
+
+    This view has 2 modes. FilterMode and TagMode. In FilterMode, the tag list
+    is not editable and checking an item will filter the remaining tags. To
+    detect changes and apply filters to other views, connect to
+    TagTreeView.model().sourceModel().dataChanged.
+    """
+
+    FilterMode = 1
+    TagMode = 2
+
+    def __init__(self, parent=None, mode=FilterMode):
         super(TagTreeView, self).__init__(parent)
         self.db = None
         self.con = None
+
+        # Set up the model
+        model = TagItemModel()
+        proxy = TagFilterProxyModel(parent=self)
+        proxy.setSourceModel(model)
+        proxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        self.setModel(proxy)
+        model.sigNewTag.connect(self.on_newTag)
+
+        # Set Mode
+        self._mode = mode
 
     def __del__(self):
         """ Re-implemented to ensure the database connection is closed """
         if self.con:
             self.con.close()
+
+    def addEmptyTag(self, cat):
+        """ Add an editable empty tag for new tags creation
+
+        Arguments:
+            cat (QStandardItem, int): The category to add the tag to. This can
+                be either the category model item itself, or the category Id
+        """
+        # Get the parent item
+        if isinstance(cat, QtGui.QStandardItem):
+            parent = cat
+        else:
+            parent = self.model().sourceModel().catItemById(cat)
+
+        Qt = QtCore.Qt
+        # Create the new tag item and append parent
+        child = QtGui.QStandardItem('<New {}>'.format(parent.text()))
+        child.id = None
+        child.setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable)
+        parent.appendRow(child)
 
     def addField(self, catId, catValue):
         """ Add a category item. Return the category item
@@ -49,6 +90,7 @@ class TagTreeView(QtGui.QTreeView):
         child.id = tagId
         child.setFlags(child.flags() | QtCore.Qt.ItemIsUserCheckable)
         child.setCheckState(QtCore.Qt.Unchecked)
+        child.setEditable(False)
         parent.appendRow(child)
 
     def dropField(self, name):
@@ -58,6 +100,18 @@ class TagTreeView(QtGui.QTreeView):
             msg = '{} fields with name {} found'
             raise ValueError(msg.format(len(item), name))
         self.model().sourceModel().removeRow(item[0].row())
+
+    def getCheckedItems(self):
+        """ Return a list of checked tag items """
+        return self.model().sourceModel().getCheckedItems()
+
+    def setMode(self, mode):
+        """ Set the mode of the tree view
+
+        Arguments:
+            mode (int): TagTreeView.FilterMode or .Tag Mode
+        """
+        self._mode = mode
 
     def setDb(self, db):
         """ Set the database object
@@ -128,19 +182,47 @@ class TagTreeView(QtGui.QTreeView):
             for tag in tags[cat]:
                 if tag[1].lower() not in alreadyTags:
                     self.addTag(parent, *tag)
+            self.addEmptyTag(parent)
 
         self.model().sort(0)
 
     @QtCore.pyqtSlot()
     def newConnection(self):
+        """ Create and store a new database connection
+
+        Slot for the database object's newConnection signal
+        """
         self.con = self.db.connect()
         if self.con:
             self.model().sourceModel().con = self.con
             self.updateTree()
 
+    @QtCore.pyqtSlot(int, str)
+    def on_newTag(self, fieldId, name):
+        """ Add a new tag
+
+        Slot for the model's sigNewTag signal
+
+        Arguments:
+            fieldId (int): The field id for the field to which the new tag
+                belongs
+            name (str): The name of the new tag
+        """
+        ids = self.db.insertTags([fieldId], [str(name)])
+        self.updateTree()
+        item = self.model().sourceModel().itemById(ids[0], fieldId)
+        item.setCheckState(QtCore.Qt.Checked)
+
+    @property
+    def mode(self):
+        return self._mode
+
 
 class TagItemModel(QtGui.QStandardItemModel):
     """ A Standard Item Model for Photo Tags """
+
+    sigNewTag = QtCore.pyqtSignal(int, str)
+
     def __init__(self, con=None, parent=None):
         super(TagItemModel, self).__init__(parent)
         self.con = con
@@ -156,6 +238,17 @@ class TagItemModel(QtGui.QStandardItemModel):
             catId (int)
         """
         return self.item(self.catIds().index(catId))
+
+    def itemById(self, Id, fieldId):
+        """ Return the item for the given tag
+
+        Arguments:
+            Id (int): The tag id
+            fieldId (int): The id of the field that contains the tag
+        """
+        parent = self.catItemById(fieldId)
+        itemIds = [parent.child(k).id for k in range(parent.rowCount())]
+        return parent.child(itemIds.index(Id))
 
     def getCheckedItems(self):
         """ Return the checked QStandardItems """
@@ -205,6 +298,20 @@ class TagItemModel(QtGui.QStandardItemModel):
             res = con.execute(sel.format(tagstr), params).fetchall()
             return map(lambda x: x[0], res)
 
+    def setData(self, index, value, role=QtCore.Qt.EditRole):
+        """ Reimplemented to handle the empty tag used to create new tags """
+        item = self.itemFromIndex(index)
+        # ID of "Empty" tag is None
+        if item.id is None:
+            # Emit the new tag signal if the user changed the field
+            strVal = str(value.toPyObject())
+            if strVal != '' and strVal != item.text():
+                parent = item.parent()
+                catId = parent.id
+                self.sigNewTag.emit(catId, strVal)
+            return True
+        return super(TagItemModel, self).setData(index, value, role)
+
 
 class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
     """ A proxy model to filter the Tag Tree View based on selections """
@@ -219,34 +326,53 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
             sourceRow (int): The row in question
             sourceParent (QModelIndex): The index of the row's parent.
         """
+        # Don't filter in Tag Mode
+        if self.parent().mode == TagTreeView.TagMode:
+            return True
+
         # Always accept parent items
         if not sourceParent.isValid():
             return True
 
         # Get the tag IDs to accept from the database for the given category
-        cat = self.sourceModel().item(sourceParent.row())
+        cat = self.sourceModel().itemFromIndex(sourceParent)
         catId = cat.id
         acceptIds = self.sourceModel().getFilteredTags(catId)
 
+        # Don't accept the empty row in Filter Mode
+        item = cat.child(sourceRow)
+        if item.id is None:
+            return False
+
         # Accept or don't
-        if acceptIds is None or cat.child(sourceRow).id in acceptIds:
+        if acceptIds is None or item.id in acceptIds:
             return True
         return False
 
+    def lessThan(self, leftIndex, rightIndex):
+        """ Re-implemented to ensure the "New Tag" item is always at the bottom
+        """
+        left = self.sourceModel().itemFromIndex(leftIndex)
+        right = self.sourceModel().itemFromIndex(rightIndex)
+        if left.id is None:
+            return False
+        if right.id is None:
+            return True
+        return super(TagFilterProxyModel, self).lessThan(leftIndex, rightIndex)
+
 if __name__ == "__main__":
-    dbfile = 'v0.2.pdb'
-    dbfile = 'FreshTrash.pdb'
+    dbfile = 'v0.3.pdb'
+#     dbfile = 'FreshTrash.pdb'
     db = PhotoDatabase(dbfile)
 
     app = QtGui.QApplication([])
-    tree = TagTreeView()
-    model = TagItemModel()
-    proxy = TagFilterProxyModel()
-    proxy.setSourceModel(model)
+#     tree = TagTreeView(mode=TagTreeView.TagMode)
+    tree = TagTreeView(mode=TagTreeView.FilterMode)
+    proxy = tree.model()
+    model = proxy.sourceModel()
+    # Only  needed here. Photo's slot calls invalidate
     model.dataChanged.connect(proxy.invalidate)
-    tree.setModel(proxy)
     tree.setDb(db)
-    tree.populateTree()
     tree.header().setVisible(False)
 
     tree.show()
@@ -261,4 +387,4 @@ if __name__ == "__main__":
 #     import pdb
 #     pdb.set_trace()
 #
-#     app.exec_()
+    app.exec_()

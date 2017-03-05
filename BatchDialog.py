@@ -6,10 +6,11 @@ class BatchTag(QtGui.QDialog, batchTag_form):
     """ A dialog box for adding tags to a batch of photos
 
     Arguments:
-        fields ([str]): (None) A list of field names
+        db (PhotoDatabase): (None) The database from which to acquire the tag
+            list
     """
 
-    def __init__(self, fields=None, parent=None):
+    def __init__(self, db=None, parent=None):
         super(BatchTag, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Batch Tag')
@@ -20,31 +21,43 @@ class BatchTag(QtGui.QDialog, batchTag_form):
                             QtCore.Qt.WindowTitleHint &~
                             QtCore.Qt.WindowCloseButtonHint)
 
-        self.label.setText('Add tags separated by , or ;')
-        self.edits = {}
+        self.label.setText('Select Tags to Add to Selected Photos\n'
+                           'Double Click <New ...> to create a new tag')
+        self.treeView.setMode(self.treeView.TagMode)
+        self.setDb(db)
+        self.treeView.expandAll()
 
-        if fields:
-            map(self.addField, fields)
-
-    def addField(self, name):
-        """ Add a line edit with the given name
+    def setDb(self, db):
+        """ Set the Tag List's database
 
         Arguments:
-            name (str): The name of the field
+            db (PhotoDatabase): The database from which to acquire the tag list
         """
-        hlayout = QtGui.QHBoxLayout()
-        label = QtGui.QLabel(name)
-        hlayout.addWidget(label)
-        edit = QtGui.QLineEdit()
-        hlayout.addWidget(edit)
-        self.layoutEdits.addLayout(hlayout)
-        self.edits[name] = edit
+        self.treeView.setDb(db)
+
+    def getCheckedTags(self):
+        """
+        Return a dictionary containing the checked tags as field/[tag]
+        """
+        checkedItems = self.treeView.getCheckedItems()
+        out = {}
+        for item in checkedItems:
+            field = str(item.parent().text())
+            tag = str(item.text())
+            if field in out:
+                out[field].append(tag)
+            else:
+                out[field] = [tag]
+        return out
 
 
 if __name__ == "__main__":
+    from datastore import PhotoDatabase
     app = QtGui.QApplication([])
+    dbfile = 'Fresh.pdb'
+    db = PhotoDatabase(dbfile)
 
-    dlg = BatchTag()
-    dlg.addField('People', ['Luke', 'Mom', 'Kami', 'Hal', 'Phil'])
-    dlg.exec_()
-    print dlg.edits['People'].text()
+    dlg = BatchTag(db)
+    out = dlg.exec_()
+    print out
+    print dlg.getCheckedTags()

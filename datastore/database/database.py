@@ -397,11 +397,6 @@ class PhotoDatabase(QtCore.QObject):
             for q, params in delMaps:
                 con.execute(q, params)
 
-            # Remove them unused tags
-            q = 'DELETE FROM Tags WHERE TagId NOT IN '+\
-                '(SELECT TagId FROM TagMap)'
-            con.execute(q)
-
     def updateTagged(self, FileIds, tagged):
         """ Update the tagged status for the given files
 

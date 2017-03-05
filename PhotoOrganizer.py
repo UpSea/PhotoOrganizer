@@ -19,10 +19,9 @@ from io import BytesIO
 import imagehash
 import sqlite3
 import re
-from datastore import (AlbumModel, Album, Photo, FieldObject, AlbumDelegate,
+from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
                        AlbumSortFilterModel, PhotoDatabase, create_database)
 from PhotoViewer import ImageViewer
-from FilterTree import TagItemModel, TagFilterProxyModel
 from Dialogs import WarningDialog, warning_box, UndoDialog
 from BatchDialog import BatchTag
 from datetime import datetime
@@ -106,12 +105,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         map(add_shortcut, self.toolBar.actions())
 
         # Set up tree view model
-        self.treeModel = TagItemModel()
-        self.treeProxy = TagFilterProxyModel()
-        self.treeProxy.setSourceModel(self.treeModel)
-        self.treeProxy.setSortCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        self.treeView.setModel(self.treeProxy)
         self.treeView.setDb(self.db)
+        self.treeProxy = self.treeView.model()
+        self.treeModel = self.treeProxy.sourceModel()
 
         # Signal Connections
         self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
@@ -444,22 +440,18 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         selection = self.view.selectedIndexes()
         source = [self.proxy.mapToSource(i) for i in selection]
         selectedRows = list(set([k.row() for k in source]))
-        fields = [k.name for k in self.fields if k.editable and
-                  k.editor == FieldObject.LineEditEditor]
-        dlg = BatchTag(fields, self)
+        dlg = BatchTag(self.db, self)
         st = dlg.exec_()
         if st == dlg.Rejected:
             return
 
         markTagged = dlg.checkMarkTagged.isChecked()
 
-        # Get a dictionary of new tags with field namess as keys
-        newTags = {}
-        for field in fields:
-            newTagStr = str(dlg.edits[field].text())
-            if newTagStr:
-                newTags[field] = [k.strip() for k in re.split(';|,', newTagStr)
-                                  if k.strip() != '']
+        # Get a dictionary of new tags with field names as keys
+        newTags = dlg.getCheckedTags()
+        if not newTags:
+            warning_box('No Tags Selected', self)
+            return
 
         if markTagged:
             newTags[self.album.taggedField] = QtCore.QVariant(True)
