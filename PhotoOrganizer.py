@@ -108,6 +108,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeView.setDb(self.db)
         self.treeProxy = self.treeView.model()
         self.treeModel = self.treeProxy.sourceModel()
+        self.proxy.setFilterList(self.treeView)
 
         # Signal Connections
         self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
@@ -128,7 +129,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionNewField.triggered.connect(self.on_newField)
         self.actionChangeLog.triggered.connect(self.on_changeLog)
         self.groupDateFilter.toggled.connect(self.proxy.setDateFilterStatus)
-        self.treeModel.dataChanged.connect(self.on_treeDataChanged)
+        self.treeModel.dataChanged.connect(self.treeProxy.invalidate)
+        self.treeModel.dataChanged.connect(self.proxy.invalidate)
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
         self.actionUndoList.triggered.connect(self.on_undoList)
         self.db.newDatabase.connect(self.treeView.newConnection)
@@ -658,17 +660,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             size (int): The desired square size of the thumbnail in pixels
         """
         self.setWidthHeight(size)
-
-    @QtCore.pyqtSlot()
-    def on_treeDataChanged(self):
-        """ Handle changes to the tree view data"""
-        self.treeProxy.invalidate()
-
-        # Set the line edit filter
-        def addQuotes(inp):
-            return '"{}"'.format(inp) if ' ' in inp else inp
-        tags = map(addQuotes, self.treeModel.getCheckedTagNames())
-        self.editFilter.setText(' '.join(tags))
 
     @QtCore.pyqtSlot()
     def on_undoList(self):

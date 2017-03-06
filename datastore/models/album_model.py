@@ -304,6 +304,8 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         self._dateFilterType = self.DayFilter
         self._hideTagged = False
 
+        self.filterList = None
+
     def filterAcceptsRow(self, sourceRow, sourceParent):
         """ Re-implemented to apply the regular expression filter to all
         columns. If any column has a match, the row is accepted.
@@ -335,6 +337,14 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         if self._hideTagged and tagged:
             return False
 
+        # Check the tag list
+        listFilter = self.filterList.getCheckedTagDict(lower=True)
+        for fieldName, tags in listFilter.iteritems():
+            for t in tags:
+                tagStr = sourceModel.dataset[sourceRow, fieldName]
+                if t.lower() not in tagStr.lower():
+                    return False
+
         # Here we want to match each word in the pattern individually. If all
         # sub-patterns match in any "filter" column, we'll accept
 
@@ -342,9 +352,12 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         pat = str(self.filterRegExp().pattern())
 
         PATTERN = re.compile(r'''((?:[^\s"]|"[^"]*")+)''')
+        patterns = PATTERN.split(pat)[1::2]
+        if self.filterList:
+            patterns += self.filterList.getCheckedTagNames()
         pats = [QtCore.QRegExp(k.replace('"', ''), QtCore.Qt.CaseInsensitive,
                                QtCore.QRegExp.RegExp)
-                for k in PATTERN.split(pat)[1::2]]
+                for k in patterns]
 
         # Check each column for the regular expression
         out = [False]*len(pats)
@@ -395,6 +408,10 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
         """
         self._dateBetween = bool(value)
         self.invalidate()
+
+    def setFilterList(self, treeView):
+        """ Associate the TagTreeView in FilterMode to be used for fitering """
+        self.filterList = treeView
 
     @QtCore.pyqtSlot(bool)
     def on_hideTagged(self, checked):

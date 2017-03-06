@@ -47,7 +47,7 @@ class TagTreeView(QtGui.QTreeView):
         if isinstance(cat, QtGui.QStandardItem):
             parent = cat
         else:
-            parent = self.model().sourceModel().catItemById(cat)
+            parent = self.sourceModel.catItemById(cat)
 
         Qt = QtCore.Qt
         # Create the new tag item and append parent
@@ -63,7 +63,7 @@ class TagTreeView(QtGui.QTreeView):
             catId (int)
             catValue (str): The name of the category
         """
-        model = self.model().sourceModel()
+        model = self.sourceModel
         parent = QtGui.QStandardItem(catValue)
         parent.id = catId
         model.appendRow(parent)
@@ -83,7 +83,7 @@ class TagTreeView(QtGui.QTreeView):
         if isinstance(cat, QtGui.QStandardItem):
             parent = cat
         else:
-            parent = self.model().sourceModel().catItemById(cat)
+            parent = self.sourceModel.catItemById(cat)
 
         # Create the new tag item and append parent
         child = QtGui.QStandardItem(tagValue)
@@ -95,15 +95,32 @@ class TagTreeView(QtGui.QTreeView):
 
     def dropField(self, name):
         """ Drop a field from the tree model """
-        item = self.model().sourceModel().findItems(name)
+        item = self.sourceModel.findItems(name)
         if len(item) != 1:
             msg = '{} fields with name {} found'
             raise ValueError(msg.format(len(item), name))
-        self.model().sourceModel().removeRow(item[0].row())
+        self.sourceModel.removeRow(item[0].row())
 
     def getCheckedItems(self):
         """ Return a list of checked tag items """
-        return self.model().sourceModel().getCheckedItems()
+        return self.sourceModel.getCheckedItems()
+
+    def getCheckedTagDict(self, lower=False):
+        tags = self.sourceModel.getCheckedTagDict()
+        if lower:
+            tags = {k: [c.lower() for c in v] for k, v in tags.iteritems()}
+        return tags
+
+    def getCheckedTagNames(self, lower=False):
+        """ Return the tag name for each checked tag
+
+        Arguments:
+            lower (bool): (False) If True, the returned names will be lower
+        """
+        names = self.sourceModel.getCheckedTagNames()
+        if lower:
+            names = [k.lower() for k in names]
+        return names
 
     def setMode(self, mode):
         """ Set the mode of the tree view
@@ -124,7 +141,7 @@ class TagTreeView(QtGui.QTreeView):
 
     def uncheckAll(self):
         """ Uncheck all items """
-        model = self.model().sourceModel()
+        model = self.sourceModel
         for p in range(model.rowCount()):
             parent = model.item(p)
             for c in range(parent.rowCount()):
@@ -145,7 +162,7 @@ class TagTreeView(QtGui.QTreeView):
                 for cat in cats}
 
         # Get the fields already in the tree
-        model = self.model().sourceModel()
+        model = self.sourceModel
         alreadyFields = [str(model.item(r).text()).lower() for r in range(model.rowCount())]
 
         # Remove deleted fields
@@ -194,7 +211,7 @@ class TagTreeView(QtGui.QTreeView):
         """
         self.con = self.db.connect()
         if self.con:
-            self.model().sourceModel().con = self.con
+            self.sourceModel.con = self.con
             self.updateTree()
 
     @QtCore.pyqtSlot(int, str)
@@ -210,12 +227,16 @@ class TagTreeView(QtGui.QTreeView):
         """
         ids = self.db.insertTags([fieldId], [str(name)])
         self.updateTree()
-        item = self.model().sourceModel().itemById(ids[0], fieldId)
+        item = self.sourceModel.itemById(ids[0], fieldId)
         item.setCheckState(QtCore.Qt.Checked)
 
     @property
     def mode(self):
         return self._mode
+
+    @property
+    def sourceModel(self):
+        return self.model().sourceModel()
 
 
 class TagItemModel(QtGui.QStandardItemModel):
@@ -264,6 +285,18 @@ class TagItemModel(QtGui.QStandardItemModel):
     def getCheckedTagIds(self):
         """ Return the tag ids for each checked tag """
         return [str(k.id) for k in self.getCheckedItems()]
+
+    def getCheckedTagDict(self):
+        items = self.getCheckedItems()
+        out = {}
+        for item in items:
+            itemText = str(item.text())
+            fieldName = str(item.parent().text())
+            if fieldName in out:
+                out[fieldName].append(itemText)
+            else:
+                out[fieldName] = [itemText]
+        return out
 
     def getCheckedTagNames(self):
         """ Return the tag name for each checked tag """
@@ -379,6 +412,8 @@ if __name__ == "__main__":
     tree.resize(QtCore.QSize(370, 675))
     tree.expandAll()
 #     app.processEvents()
+
+    print tree.getCheckedTagDict(lower=True)
 
 #     import time
 #     time.sleep(2)
