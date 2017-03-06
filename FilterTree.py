@@ -296,7 +296,7 @@ class TagItemModel(QtGui.QStandardItemModel):
                    'WHERE cnt == ?)')
             params = [catId] + checkedTags + [len(checkedTags)]
             res = con.execute(sel.format(tagstr), params).fetchall()
-            return map(lambda x: x[0], res)
+            return map(int, checkedTags) + map(lambda x: x[0], res)
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         """ Reimplemented to handle the empty tag used to create new tags """
@@ -361,8 +361,8 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
         return super(TagFilterProxyModel, self).lessThan(leftIndex, rightIndex)
 
 if __name__ == "__main__":
-    dbfile = 'v0.3.pdb'
-#     dbfile = 'FreshTrash.pdb'
+#     dbfile = 'v0.3.pdb'
+    dbfile = 'Fresh.pdb'
     db = PhotoDatabase(dbfile)
 
     app = QtGui.QApplication([])
