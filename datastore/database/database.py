@@ -342,8 +342,10 @@ class PhotoDatabase(QtCore.QObject):
         mapParams1 = []
 
         delMapQ = "DELETE From TagMap WHERE FilId == ? AND "+\
+                  "(SELECT FieldId FROM Tags as t "+\
+                  "WHERE t.TagId == TagMap.TagId) == ? AND "+\
                   "(SELECT lower(Value) FROM Tags as t WHERE "+\
-                  "t.TagId == TagMap.TagId AND t.FieldId == ?) "+\
+                  "t.TagId == TagMap.TagId) "+\
                   "NOT IN ({})"
         delMaps = []
 

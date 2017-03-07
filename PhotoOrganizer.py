@@ -83,7 +83,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.model = AlbumModel(album)
         self.model.undoStack = self.undoStack
 
-        self.model.albumDataChanged.connect(self.on_albumDataChanged)
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
         self.proxy.setFilterKeyColumn(2)
@@ -117,6 +116,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.imageViewer.treeView.setDb(self.db)
 
         # Signal Connections
+        self.model.albumDataChanged.connect(self.on_albumDataChanged)
         self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
