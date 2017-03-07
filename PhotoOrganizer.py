@@ -117,7 +117,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Signal Connections
         self.model.albumDataChanged.connect(self.on_albumDataChanged)
-        self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
+        self.editFilter.textChanged.connect(self.on_editFilterTextChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
@@ -580,7 +580,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             self.importFolder(str(folder), self.databaseFile)
 
     @QtCore.pyqtSlot(str)
-    def on_editFilter_textChanged(self, pattern):
+    def on_editFilterTextChanged(self, pattern):
         """Set the filter
 
         Slot for the line edit
@@ -588,6 +588,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         Arguments:
             pattern (str): The pattern for the regular expression
         """
+        QtGui.qApp.processEvents()
         search = QtCore.QRegExp(pattern,
                                 QtCore.Qt.CaseInsensitive,
                                 QtCore.QRegExp.RegExp)
