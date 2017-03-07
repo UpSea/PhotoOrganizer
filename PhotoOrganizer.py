@@ -40,6 +40,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
         self.treeView.setHidden(True)
+        self.treeView.sourceModel.setHorizontalHeaderLabels(['Filter by Tags'])
 
         # Setup application organization and application name
         app = QtGui.QApplication.instance()
@@ -110,6 +111,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeModel = self.treeProxy.sourceModel()
         self.proxy.setFilterList(self.treeView)
 
+        # Create the image viewer window
+        self.imageViewer = ImageViewer(albumModel=self.model)
+        self.imageViewer.treeView.setMode(self.treeView.TagMode)
+        self.imageViewer.treeView.setDb(self.db)
+
         # Signal Connections
         self.editFilter.textChanged.connect(self.on_editFilter_textChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
@@ -134,14 +140,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
         self.actionUndoList.triggered.connect(self.on_undoList)
         self.db.newDatabase.connect(self.treeView.newConnection)
+        self.db.newDatabase.connect(self.imageViewer.treeView.newConnection)
         self.db.databaseChanged.connect(self.treeView.updateTree)
+        self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
         self.verticalHeader = self.view.verticalHeader()
-
-        # Create the image viewer window
-        self.imageViewer = ImageViewer()
 
         # Setup the date filters
         self.comboDateFilter.addItems(['Year', 'Month', 'Day'])
@@ -531,8 +536,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         for k in range(self.proxy.rowCount()):
             i = self.proxy.mapToSource(self.proxy.index(k, 0))
             r = i.row()
-            allFiles.append(os.path.join(self.album[r, 'Directory'],
-                                         self.album[r, 'File Name']))
+            allFiles.append(self.album[r])
 
         self.imageViewer.setImage(allFiles, row)
 

@@ -181,7 +181,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
         Arguments:
             rows ([int]): A list of row indexes
             values (dict): A dictionary with field names as keys and lists of
-                tag strings, or QVariant as values
+                tag strings, or QVariant as values. values can also be a list
+                of dictionaries but the must have the same fields.
         """
         command = batchAddCmd(self, rows, values)
         self.undoStack.push(command)
@@ -283,7 +284,38 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.dataset = dataset
         self.endResetModel()
 
+    def setTagState(self, row, fieldName, tag, state):
+        """ Insert or remove a tag from a Photo for a given field
+
+        Arguments:
+            row (int): The table row of the desired photo
+            fieldName (str): The name of the field to edit
+            tag (str): The tag to add or remove
+            state (bool): If True, add the tag, otherwise remove
+        """
+        col = self.dataset.field_names.index(fieldName)
+        tag = str(tag)
+        index = self.index(row, col)
+        tagLow = tag.lower()
+        tagStr = str(index.data().toPyObject())
+        tags = [k.strip() for k in re.split(';|,', tagStr)
+                if k.strip() != '']
+        tagsLow = [k.lower() for k in tags]
+        if state:
+            if tagLow not in tagsLow:
+                tags.append(tag)
+        else:
+            if tagLow in tagsLow:
+                dex = tagsLow.index(tagLow)
+                tags.pop(dex)
+        self.setData(index, QtCore.QVariant('; '.join(tags)))
+
     def date(self, row):
+        """ Return the date for the given row as a QDate
+
+        Arguments:
+            row (int)
+        """
         date = self.dataset[row].date
         return QtCore.QDate(date) if date else None
 

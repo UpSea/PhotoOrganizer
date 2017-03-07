@@ -94,10 +94,23 @@ class PhotoDatabase(QtCore.QObject):
             con.close()
         return out
 
+    def tagsByFileId(self, fileId):
+        """ Return a list of Tag IDs that are applied to the given photo
+
+        Arguments:
+            fileId (int): The database ID of the photo
+        """
+        q = ('SELECT t.TagId FROM TagMap as tm JOIN Tags as t ON '
+             't.TagId == tm.TagId WHERE tm.FilId == ?')
+        with self.connect() as con:
+            res = con.execute(q, (fileId,))
+            return [k[0] for k in res]
+
     def insertField(self, fieldobj):
         """ Insert a new field. Return the id of the new category
 
         Arguments:
+            fieldobject (FieldObject): The field to add to the database
         """
         assert(isinstance(fieldobj, FieldObject))
         field_props = FieldObjectContainer.fieldProps
@@ -114,19 +127,26 @@ class PhotoDatabase(QtCore.QObject):
         self.databaseChanged.emit()
         return newId
 
-    def insertTags(self, catIds, tagValues=None):
-        """ Insert a new tag. Return the id of the new tag
+    def insertTags(self, fieldIds, tagValues=None):
+        """ Insert a new tag. Return the id of the new tag. Return a list of
+        IDs for the inserted tags.
 
-        Arguments
+        Arguments:
+            fieldIds (int, [int], [(int, str)]: The database ID(s) of the
+                field(s) to which the tags should be added. This can also be a
+                list of tuples containing each fieldId and tagValue pair, in
+                which case, the next argument should be None
+            tagValues (str, [str]): (None) The tag(s) that correspond to the
+                given fields.
         """
         if tagValues is not None:
-            if isinstance(catIds, int):
-                catIds = [catIds]
+            if isinstance(fieldIds, int):
+                fieldIds = [fieldIds]
             if isinstance(tagValues, basestring):
                 tagValues = [tagValues]
-            params = zip(catIds, tagValues)
+            params = zip(fieldIds, tagValues)
         else:
-            params = catIds
+            params = fieldIds
 
         q = 'INSERT INTO Tags (FieldId, Value) VALUES (?,?)'
         with self.connect() as con:
@@ -398,7 +418,7 @@ class PhotoDatabase(QtCore.QObject):
                 con.execute(q, params)
 
     def updateTagged(self, FileIds, tagged):
-        """ Update the tagged status for the given files
+        """ Update the tagged status for the given files. Return the rowcount
 
         Arguments:
             FileIds ([int], int)
@@ -421,7 +441,7 @@ class PhotoDatabase(QtCore.QObject):
 if __name__ == "__main__":
     app = QtGui.QApplication([])
 #     from create_database import create_database
-    dbfile = 'asdf.pdb'
+    dbfile = r"C:\Users\Luke\Files\Python\workspace\PicOrganizer\Fresh.pdb"
 #     create_database(dbfile)
     db = PhotoDatabase(dbfile)
 #     db.insertField(FieldObject('People'))
@@ -436,7 +456,9 @@ if __name__ == "__main__":
 
 #     db.dropField('Joe')
 
-    album = db.load(dbfile)
+#     album = db.load(dbfile)
+
+    print db.tagsByFileId(1)
 
 #     import pdb
 #     pdb.set_trace()

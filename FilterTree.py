@@ -93,6 +93,25 @@ class TagTreeView(QtGui.QTreeView):
         child.setEditable(False)
         parent.appendRow(child)
 
+    def checkFileTags(self, fileId):
+        """ Set the check state of all tags for the given file
+
+        Arguments:
+            fileId (int): The database file id of the file to check
+        """
+        # Get the tags from the database.
+        tagIds = self.db.tagsByFileId(fileId)
+        # Loop over each tag in each field in the list and set the check state
+        # to match the database.
+        for f in range(self.sourceModel.rowCount()):
+            field = self.sourceModel.item(f)
+            for p in range(field.rowCount()):
+                fileItem = field.child(p)
+                if fileItem.id in tagIds:
+                    fileItem.setCheckState(QtCore.Qt.Checked)
+                elif fileItem.id is not None:
+                    fileItem.setCheckState(QtCore.Qt.Unchecked)
+
     def dropField(self, name):
         """ Drop a field from the tree model """
         item = self.sourceModel.findItems(name)
@@ -411,6 +430,7 @@ if __name__ == "__main__":
     tree.show()
     tree.resize(QtCore.QSize(370, 675))
     tree.expandAll()
+    tree.checkFileTags(1)
 #     app.processEvents()
 
     print tree.getCheckedTagDict(lower=True)

@@ -2,6 +2,7 @@ from fieldobjects import FieldObject, FieldObjectContainer
 from collections import MutableSequence
 from datetime import datetime
 import re
+import os.path
 import pdb
 
 # Handle python versions
@@ -87,6 +88,11 @@ class Photo(dict):
     def fileId(self):
         return self[Album.fileIdField]
 
+    @property
+    def filePath(self):
+        return os.path.join(self[Album.directoryField],
+                            self[Album.fileNameField])
+
 
 class Album(MutableSequence):
     """A Photo container
@@ -101,6 +107,8 @@ class Album(MutableSequence):
     dateField = 'Date'
     fileIdField = 'FileId'
     taggedField = 'Tagged'
+    directoryField = 'Directory'
+    fileNameField = 'File Name'
 
     def __init__(self, fields=None, values=None):
         fields = fields or []
@@ -167,6 +175,9 @@ class Album(MutableSequence):
 
     def append(self, value):
         self._entries.append(value)
+
+    def index(self, value):
+        return self._entries.index(value)
 
     def initializeFields(self):
         """ Initialize the default fields """
