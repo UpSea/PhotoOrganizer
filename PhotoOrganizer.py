@@ -18,7 +18,6 @@ from PIL import Image
 from io import BytesIO
 import imagehash
 import sqlite3
-import re
 from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
                        AlbumSortFilterModel, PhotoDatabase, create_database)
 from PhotoViewer import ImageViewer
@@ -447,7 +446,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         selection = self.view.selectedIndexes()
         source = [self.proxy.mapToSource(i) for i in selection]
         selectedRows = list(set([k.row() for k in source]))
+
+        fileIds = [self.album[k, self.album.fileIdField] for k in selectedRows]
         dlg = BatchTag(self.db, self)
+        dlg.treeView.checkFileTags(fileIds)
         st = dlg.exec_()
         if st == dlg.Rejected:
             return
@@ -455,16 +457,17 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         markTagged = dlg.checkMarkTagged.isChecked()
 
         # Get a dictionary of new tags with field names as keys
-        newTags = dlg.getCheckedTags()
-        if not newTags:
+        checkedTags = dlg.treeView.getCheckedTagDict(QtCore.Qt.Checked)
+        uncheckedTags = dlg.treeView.getCheckedTagDict(QtCore.Qt.Unchecked)
+        if not checkedTags:
             warning_box('No Tags Selected', self)
             return
 
         if markTagged:
-            newTags[self.album.taggedField] = QtCore.QVariant(True)
+            checkedTags[self.album.taggedField] = QtCore.QVariant(True)
 
         # Batch-add the tags
-        self.model.batchAddTags(selectedRows, newTags)
+        self.model.batchAddTags(selectedRows, checkedTags, uncheckedTags)
 
     @QtCore.pyqtSlot()
     def on_changeLog(self):

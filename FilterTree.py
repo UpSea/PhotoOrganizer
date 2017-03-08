@@ -99,16 +99,22 @@ class TagTreeView(QtGui.QTreeView):
         Arguments:
             fileId (int): The database file id of the file to check
         """
+        if isinstance(fileId, int):
+            fileId = [fileId]
+        numfiles = len(fileId)
         # Get the tags from the database.
-        tagIds = self.db.tagsByFileId(fileId)
+        tagIds = [id for k in fileId for id in self.db.tagsByFileId(k)]
         # Loop over each tag in each field in the list and set the check state
         # to match the database.
         for f in range(self.sourceModel.rowCount()):
             field = self.sourceModel.item(f)
             for p in range(field.rowCount()):
                 fileItem = field.child(p)
-                if fileItem.id in tagIds:
+                thisid = fileItem.id
+                if tagIds.count(thisid) == numfiles:
                     fileItem.setCheckState(QtCore.Qt.Checked)
+                elif fileItem.id in tagIds:
+                    fileItem.setCheckState(QtCore.Qt.PartiallyChecked)
                 elif fileItem.id is not None:
                     fileItem.setCheckState(QtCore.Qt.Unchecked)
 
@@ -120,15 +126,31 @@ class TagTreeView(QtGui.QTreeView):
             raise ValueError(msg.format(len(item), name))
         self.sourceModel.removeRow(item[0].row())
 
-    def getCheckedItems(self):
-        """ Return a list of checked tag items """
-        return self.sourceModel.getCheckedItems()
+    def getCheckedTagDict(self, checkState=QtCore.Qt.Checked, lower=False):
+        """ Return a dictionary containing the checked tags as field/[tag]
 
-    def getCheckedTagDict(self, lower=False):
-        tags = self.sourceModel.getCheckedTagDict()
+        Arguments:
+            checkState (Qt.CheckState): (Checked) The desired check state of
+                output tags
+            lower (bool): (False) Whether or not all output tags should be
+                lower case
+        """
+        model = self.sourceModel
+        # Get the items
+        items = model.getItemsByCheckState(checkState)
+        # Loop through all items and create the output dictionary
+        out = {}
+        for item in items:
+            itemText = str(item.text())
+            fieldName = str(item.parent().text())
+            if fieldName in out:
+                out[fieldName].append(itemText)
+            else:
+                out[fieldName] = [itemText]
+
         if lower:
-            tags = {k: [c.lower() for c in v] for k, v in tags.iteritems()}
-        return tags
+            out = {k: [c.lower() for c in v] for k, v in out.iteritems()}
+        return out
 
     def getCheckedTagNames(self, lower=False):
         """ Return the tag name for each checked tag
@@ -292,30 +314,30 @@ class TagItemModel(QtGui.QStandardItemModel):
 
     def getCheckedItems(self):
         """ Return the checked QStandardItems """
+        return self.getItemsByCheckState(QtCore.Qt.Checked)
+
+    def getPartiallyCheckedItems(self):
+        """ Return the partially checked QStandardItems """
+        return self.getItemsByCheckState(QtCore.Qt.PartiallyChecked)
+
+    def getUncheckedItems(self):
+        """ Return the unchecked QStandardItems """
+        return self.getItemsByCheckState(QtCore.Qt.Unchecked)
+
+    def getItemsByCheckState(self, checkState):
+        """ Return the QStandardItems with the given checkState"""
         checkedTags = []
         for catDex in range(self.rowCount()):
             catItem = self.item(catDex)
             for tagDex in range(catItem.rowCount()):
                 tagItem = catItem.child(tagDex)
-                if tagItem.checkState():
+                if tagItem.checkState() == checkState:
                     checkedTags.append(tagItem)
         return checkedTags
 
     def getCheckedTagIds(self):
         """ Return the tag ids for each checked tag """
         return [str(k.id) for k in self.getCheckedItems()]
-
-    def getCheckedTagDict(self):
-        items = self.getCheckedItems()
-        out = {}
-        for item in items:
-            itemText = str(item.text())
-            fieldName = str(item.parent().text())
-            if fieldName in out:
-                out[fieldName].append(itemText)
-            else:
-                out[fieldName] = [itemText]
-        return out
 
     def getCheckedTagNames(self):
         """ Return the tag name for each checked tag """
@@ -418,8 +440,8 @@ if __name__ == "__main__":
     db = PhotoDatabase(dbfile)
 
     app = QtGui.QApplication([])
-#     tree = TagTreeView(mode=TagTreeView.TagMode)
-    tree = TagTreeView(mode=TagTreeView.FilterMode)
+    tree = TagTreeView(mode=TagTreeView.TagMode)
+#     tree = TagTreeView(mode=TagTreeView.FilterMode)
     proxy = tree.model()
     model = proxy.sourceModel()
     # Only  needed here. Photo's slot calls invalidate
@@ -430,10 +452,11 @@ if __name__ == "__main__":
     tree.show()
     tree.resize(QtCore.QSize(370, 675))
     tree.expandAll()
-    tree.checkFileTags(1)
+#     tree.checkFileTags(1)
 #     app.processEvents()
 
-    print tree.getCheckedTagDict(lower=True)
+#     print tree.getCheckedTagDict(lower=True)
+    tree.checkFileTags([1, 3])
 
 #     import time
 #     time.sleep(2)

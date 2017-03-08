@@ -35,21 +35,6 @@ class BatchTag(QtGui.QDialog, batchTag_form):
         """
         self.treeView.setDb(db)
 
-    def getCheckedTags(self):
-        """
-        Return a dictionary containing the checked tags as field/[tag]
-        """
-        checkedItems = self.treeView.getCheckedItems()
-        out = {}
-        for item in checkedItems:
-            field = str(item.parent().text())
-            tag = str(item.text())
-            if field in out:
-                out[field].append(tag)
-            else:
-                out[field] = [tag]
-        return out
-
 
 if __name__ == "__main__":
     from datastore import PhotoDatabase

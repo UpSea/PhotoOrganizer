@@ -168,7 +168,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
         else:
             return False
 
-    def batchAddTags(self, rows, values):
+    def batchAddTags(self, rows, values, rvalues=None):
         """ Add tags to multiple cells
 
         A variation on setData for batches. If a value is QVariant, all rows
@@ -184,10 +184,10 @@ class AlbumModel(QtCore.QAbstractTableModel):
                 tag strings, or QVariant as values. values can also be a list
                 of dictionaries but the must have the same fields.
         """
-        command = batchAddCmd(self, rows, values)
+        command = batchAddCmd(self, rows, values, rvalues)
         self.undoStack.push(command)
 
-    def _batchAddTags(self, rows, values, keep=True):
+    def _batchAddTags(self, rows, values, rvalues=None):
         """ A private method for batch-adding tags
 
         Same description and arguments as the public method
@@ -198,6 +198,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
         bottom = max(rows)
         if not isinstance(values, list):
             values = [values]*len(rows)
+        if not isinstance(rvalues, list):
+            rvalues = [rvalues]*len(rows)
         old = [{f: None for f in values[0]} for _ in rows]
         # Loop over columns then rows to set the data for each index
         for fieldname in values[0]:
@@ -220,6 +222,15 @@ class AlbumModel(QtCore.QAbstractTableModel):
                     oldTagStr = str(index.data().toPyObject())
                     oldTags = [k.strip() for k in re.split(';|,', oldTagStr)
                                if k.strip() != '']
+
+                    # Remove tags to be removed
+                    if rvalues:
+                        oldTagsLow = [k.lower() for k in oldTags]
+                        for rv in rvalues[r][fieldname]:
+                            if rv.lower() in oldTagsLow:
+                                oldTags.pop(oldTagsLow.index(rv.lower()))
+                                oldTagsLow.remove(rv.lower())
+
                     replace = oldTags + [k for k in newTags
                                          if k not in oldTags]
                     cvalue = self._getSetValue(field,
@@ -501,22 +512,23 @@ class batchAddCmd(QtGui.QUndoCommand):
     """
     description = "Set Batch"
 
-    def __init__(self, model, rows, values, parent=None):
+    def __init__(self, model, rows, values, rvalues, parent=None):
         self.model = model
         self.rows = rows
         self.newvalues = values
+        self.remove = rvalues
         self.oldvalues = None
         cell = " ({} Photos)".format(len(rows))
         description = self.description + cell
         super(batchAddCmd, self).__init__(description, parent)
 
     def redo(self):
-        old = self.model._batchAddTags(self.rows, self.newvalues)
+        old = self.model._batchAddTags(self.rows, self.newvalues, self.remove)
         if self.oldvalues is None:
             self.oldvalues = old
 
     def undo(self):
-        self.model._batchAddTags(self.rows, self.oldvalues, keep=False)
+        self.model._batchAddTags(self.rows, self.oldvalues)
 
 
 class deleteCmd(QtGui.QUndoCommand):
