@@ -53,6 +53,13 @@
       </spacer>
      </item>
      <item>
+      <widget class="QCheckBox" name="checkUnmarkTagged">
+       <property name="text">
+        <string>Unmark Tagged</string>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QCheckBox" name="checkMarkTagged">
        <property name="text">
         <string>Mark Tagged</string>

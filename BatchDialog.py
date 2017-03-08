@@ -27,6 +27,18 @@ class BatchTag(QtGui.QDialog, batchTag_form):
         self.setDb(db)
         self.treeView.expandAll()
 
+        # Set up signals
+        self.checkMarkTagged.stateChanged.connect(self.on_markTagged)
+        self.checkUnmarkTagged.stateChanged.connect(self.on_unmarkTagged)
+
+    def on_markTagged(self, state):
+        if state:
+            self.checkUnmarkTagged.setChecked(QtCore.Qt.Unchecked)
+
+    def on_unmarkTagged(self, state):
+        if state:
+            self.checkMarkTagged.setChecked(QtCore.Qt.Unchecked)
+
     def setDb(self, db):
         """ Set the Tag List's database
 
@@ -45,4 +57,4 @@ if __name__ == "__main__":
     dlg = BatchTag(db)
     out = dlg.exec_()
     print out
-    print dlg.getCheckedTags()
+    print dlg.treeView.getCheckedTagDict()

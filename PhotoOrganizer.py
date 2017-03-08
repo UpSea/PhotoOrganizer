@@ -455,6 +455,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             return
 
         markTagged = dlg.checkMarkTagged.isChecked()
+        markUntagged = dlg.checkUnmarkTagged.isChecked()
 
         # Get a dictionary of new tags with field names as keys
         checkedTags = dlg.treeView.getCheckedTagDict(QtCore.Qt.Checked)
@@ -465,6 +466,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         if markTagged:
             checkedTags[self.album.taggedField] = QtCore.QVariant(True)
+
+        if markUntagged:
+            checkedTags[self.album.taggedField] = QtCore.QVariant(False)
 
         # Batch-add the tags
         self.model.batchAddTags(selectedRows, checkedTags, uncheckedTags)
@@ -519,7 +523,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         QtGui.qApp.processEvents()
         self.db.updateAlbum(self.album, fileIds, fieldnames)
 
-        self.treeView.updateTree()
         self.proxy.invalidate()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
