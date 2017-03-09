@@ -21,7 +21,7 @@ def convertCheck(dbfile):
 
     if compareMinor(fileVersion, '0.2') < 0:
         return False, None, fileVersion
-    if compareMinor(fileVersion, __release__) < 0:
+    if compareMinor(fileVersion, '0.3') < 0:
         return True, True, fileVersion
     return True, False, fileVersion
 

@@ -27,6 +27,7 @@ add_folder(a.datas, 'icons', r'src\icons')
 a.datas += [(r'datastore\database\create_database.sql',
 		     r'src\datastore\database\create_database.sql', 'DATA')]
 a.datas += [('ChangeLog.txt', 'ChangeLog.txt', 'DATA')]
+a.datas.append(('build_info', 'build_info', 'DATA'))
 ####################
 
 coll = COLLECT(exe,

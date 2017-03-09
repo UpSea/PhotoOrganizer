@@ -3,10 +3,14 @@ import sys
 import re
 
 
-__release__ = '0.3.1'
+__release__ = '0.4.0'
 
+# These are used in the settings
 organization = "McNinch Custom"
 application = "PhotoOrganizer"
+
+# This is the default installation directory
+installDir = os.path.join(os.path.expanduser("~"), '.PhotoOrganizer')
 
 
 def resource_path(relative):
@@ -30,3 +34,17 @@ def replace(text, rep):
     pattern = re.compile("|".join(rep.keys()))
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
     return text
+
+# Build Time Info
+if hasattr(sys, '_MEIPASS'):
+    frozen = True
+    BUILD_INFO_FILE = os.path.join(sys._MEIPASS, 'build_info')
+    if os.path.exists(BUILD_INFO_FILE):
+        with open(BUILD_INFO_FILE, 'rb') as fid:
+            BUILD_TIME = fid.readline()
+            BUILD_INFO = fid.read()
+    else:
+        BUILD_TIME = "No Build Info"
+else:
+    frozen = False
+    BUILD_TIME = "Running Python"

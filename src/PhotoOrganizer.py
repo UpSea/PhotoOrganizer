@@ -10,7 +10,8 @@ http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
-from shared import resource_path, __release__, organization, application
+from shared import (resource_path, __release__, organization, application,
+                    BUILD_TIME)
 import platform
 import os
 from glob import glob
@@ -563,11 +564,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Create the program about menu and display it """
         mess_str = ("<b>Photo Organizer</b> v{}"
                     "<p>Developed by Luke McNinch (lcmcninch@yahoo.com)"
-                    "<p>Python {} - Qt {} - PyQt {} - sqlite3 {} - sqlite {}")
+                    "<p>Python {} - Qt {} - PyQt {} - sqlite3 {} - sqlite {}"
+                    "<p> {}")
         mess_format = mess_str.format(__release__, platform.python_version(),
                                       QtCore.QT_VERSION_STR,
                                       QtCore.PYQT_VERSION_STR,
-                                      sqlite3.version, sqlite3.sqlite_version)
+                                      sqlite3.version, sqlite3.sqlite_version,
+                                      BUILD_TIME)
         QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
 
     @QtCore.pyqtSlot()
