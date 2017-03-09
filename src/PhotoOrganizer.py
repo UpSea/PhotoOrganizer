@@ -48,6 +48,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         app.setOrganizationName(organization)
         app.setApplicationName(application)
 
+        # Default settings
+        self.options = {'importFolder': os.path.expanduser("~")}
+
         # Set up the widgets
         self.slider.setRange(20, 400)
         self.slider.setValue(100)
@@ -164,6 +167,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Re-implemented to restore window geometry when shown """
         # Restore the window geometry
         settings = QtCore.QSettings()
+        options = settings.value("options").toPyObject()
+        if options:
+            for k, v in options.iteritems():
+                if str(k) in self.options:
+                    if isinstance(v, QtCore.QString):
+                        v = str(v)
+                    self.options[str(k)] = v
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
         # Restore the toolbar settings
         tb = settings.value('toolbarShowing')
@@ -179,6 +189,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Save general App settings
         settings = QtCore.QSettings()
         settings.clear()
+        settings.setValue("options", QtCore.QVariant(self.options))
         # Save the window geometry
         settings.setValue("MainWindow/Geometry", QtCore.QVariant(
                           self.saveGeometry()))
@@ -581,9 +592,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         Slot for actionImportFolder
         """
-        folder = QtGui.QFileDialog.getExistingDirectory(self, "Import Folder",
-                                                        QtCore.QDir.currentPath())
+        gxd = QtGui.QFileDialog.getExistingDirectory
+        folder = gxd(self, "Import Folder", self.options['importFolder'])
         if folder:
+            self.options['importFolder'] = os.path.split(str(folder))[0]
             if self.view.isHidden():
                 self.view.setHidden(False)
                 self.treeView.setHidden(False)
