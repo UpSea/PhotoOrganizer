@@ -1,9 +1,9 @@
 # -*- mode: python -*-
-a = Analysis(['PhotoOrganizer.py'],
-             pathex=['C:\\Users\\Luke\\Files\\Python\\workspace\\PicOrganizer'],
-             hiddenimports=[],
-             hookspath=['.\\hooks\\'],
-             runtime_hooks=None)
+a = Analysis([r'src\PhotoOrganizer.py'],
+              pathex=['.'],
+              hiddenimports=[],
+              hookspath=[r'src\hooks'],
+              runtime_hooks=None)
 pyz = PYZ(a.pure)
 exe = EXE(pyz,
           a.scripts,
@@ -15,7 +15,7 @@ exe = EXE(pyz,
           console=True )
 
 #### USER ADDED #####
-def add_folder(datas, folder, exe_root):
+def add_folder(datas, exe_root, folder):
     for r, d, files in os.walk(folder):
         for f in files:
             if f.lower() != 'thumbs.db':
@@ -23,10 +23,11 @@ def add_folder(datas, folder, exe_root):
                 local_path = os.path.join(r, f)
                 datas += [(exe_path, local_path, 'DATA')]
 
-add_folder(a.datas, 'icons', 'icons')
+add_folder(a.datas, 'icons', r'src\icons')
 a.datas += [(r'datastore\database\create_database.sql',
-		     r'datastore\database\create_database.sql', 'DATA')]
+		     r'src\datastore\database\create_database.sql', 'DATA')]
 a.datas += [('ChangeLog.txt', 'ChangeLog.txt', 'DATA')]
+####################
 
 coll = COLLECT(exe,
                a.binaries,
