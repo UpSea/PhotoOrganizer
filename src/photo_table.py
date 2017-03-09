@@ -21,7 +21,8 @@ class PhotoTable(QtGui.QTableView):
         self.horizontalHeader().setMovable(True)
 
         # Add the batch tag action
-        self.actionBatchTag = QtGui.QAction('Batch Tag', self)
+        self.actionBatchTag = QtGui.QAction('&Group Tag Selection', self)
+        self.actionBatchTag.setShortcut('Ctrl+G')
 
     def contextMenuEvent(self, event):
         """ Reimplemented context menu event handler

@@ -53,11 +53,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
+        # Set up menus
+        self.menuOrganize.addAction(self.view.actionBatchTag)
+
         # Add icons
         actionicons = [(self.actionNewDatabase, r'icons\New.ico'),
-                       (self.actionOpenDatabase, r'icons\Open.ico'),
-                       (self.actionUndo, r'icons\Undo.png'),
-                       (self.actionRedo, r'icons\Redo.png')]
+                       (self.actionOpenDatabase, r'icons\Open.ico')]
         for action, iconPath in actionicons:
             icon = QtGui.QIcon(resource_path(iconPath))
             action.setIcon(icon)
@@ -123,9 +124,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionImportFolder.triggered.connect(self.on_importFolder)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
-        self.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.view.actionBatchTag.triggered.connect(self.on_actionBatchTag)
         self.actionAbout.triggered.connect(self.on_helpAbout)
+        self.actionKeyboard_Shortcuts.triggered.connect(self.on_keyboardShortcuts)
         self.dateFrom.dateChanged.connect(self.proxy.setFromDate)
         self.dateFrom.dateChanged.connect(self.dateTo.setMinimumDate)
         self.dateTo.dateChanged.connect(self.proxy.setToDate)
@@ -588,6 +589,33 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 self.treeView.setHidden(False)
                 self.labelNoPhotos.setHidden(True)
             self.importFolder(str(folder), self.databaseFile)
+
+    @QtCore.pyqtSlot()
+    def on_keyboardShortcuts(self):
+        """ Create a dialog listing the available keyboard shortcuts """
+        mess_str = ("""<b>Photo Organizer Keyboard Shortcuts</b>
+                    <p>
+                    <table>
+                    <tr>
+                    <td width=85>Shortcut</td><td width=150>Description</td><td width=75>Context</td>
+                    </tr>
+                    <tr>
+                    <td>CTRL-G</td><td>Group Tag Selected Rows</td><td>Anywhere</td>
+                    </tr><tr>
+                    <td>CTRL-I</td><td>Insert Tag Field</td><td>Anywhere</td>
+                    </tr><tr>
+                    <td>CTRL-Q</td><td>Exit</td><td>Anywhere</td>
+                    </tr><tr>
+                    <td>CTRL-Y</td><td>Redo</td><td>Anywhere</td>
+                    </tr><tr>
+                    <td>CTRL-Z</td><td>Undo</td><td>Anywhere</td>
+                    </tr><tr>
+                    </tr>
+                    </table>""")
+        box = QtGui.QMessageBox(self)
+        box.setWindowTitle('Keyboard Shortcuts')
+        box.setText(mess_str)
+        box.exec_()
 
     @QtCore.pyqtSlot(str)
     def on_editFilterTextChanged(self, pattern):

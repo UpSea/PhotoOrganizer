@@ -197,7 +197,6 @@ This may take a while if there are many photos. Watch the status bar below for p
     <property name="title">
      <string>Organize</string>
     </property>
-    <addaction name="actionBatchTag"/>
     <addaction name="actionHideTagged"/>
     <addaction name="actionNewField"/>
    </widget>
@@ -205,6 +204,8 @@ This may take a while if there are many photos. Watch the status bar below for p
     <property name="title">
      <string>Help</string>
     </property>
+    <addaction name="actionKeyboard_Shortcuts"/>
+    <addaction name="separator"/>
     <addaction name="actionChangeLog"/>
     <addaction name="actionAbout"/>
    </widget>
@@ -268,11 +269,6 @@ This may take a while if there are many photos. Watch the status bar below for p
     <bool>true</bool>
    </property>
   </action>
-  <action name="actionBatchTag">
-   <property name="text">
-    <string>Batch-tag Selected Rows</string>
-   </property>
-  </action>
   <action name="actionAbout">
    <property name="text">
     <string>About</string>
@@ -307,22 +303,6 @@ This may take a while if there are many photos. Watch the status bar below for p
     <string>Change Log</string>
    </property>
   </action>
-  <action name="actionUndo">
-   <property name="text">
-    <string>Undo</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Z</string>
-   </property>
-  </action>
-  <action name="actionRedo">
-   <property name="text">
-    <string>Redo</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Y</string>
-   </property>
-  </action>
   <action name="actionUndoList">
    <property name="text">
     <string>Undo List</string>
@@ -337,6 +317,11 @@ This may take a while if there are many photos. Watch the status bar below for p
    </property>
    <property name="text">
     <string>Toolbar</string>
+   </property>
+  </action>
+  <action name="actionKeyboard_Shortcuts">
+   <property name="text">
+    <string>Keyboard Shortcuts</string>
    </property>
   </action>
  </widget>
