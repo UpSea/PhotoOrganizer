@@ -12,7 +12,8 @@ exe = EXE(pyz,
           debug=False,
           strip=None,
           upx=True,
-          console=True )
+          console=True,
+          icon=r'src\icons\PO.ico')
 
 #### USER ADDED #####
 def add_folder(datas, exe_root, folder):

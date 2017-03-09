@@ -36,6 +36,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         super(PhotoOrganizer, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
+        self.setWindowIcon(QtGui.QIcon(resource_path(r'icons\PO.ico')))
         self.db = PhotoDatabase(dbfile, self)
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
