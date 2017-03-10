@@ -1,3 +1,26 @@
+v0.4.0
+Updates:
+- This release ships as installer executable, rather than zip file that
+    must be extracted manually.
+- Batch Tag (now called Group Tag) uses a checkable tag list
+    rather than manually typed line edits. Now allows un-mark tagged.
+- Tags checked in filter list will be matched exactly. Before,
+   if one tag was contained in another, they would both match.
+- Tag list in photo viewer for easy tagging of individual photos.
+- Improved responsiveness of the free-text filter
+- Add keyboard shortcuts and listing in help menu
+- Add log window for error catching so application doesn't have to
+    have console.
+
+
+Bug Fixes:
+- When tags with no filter checked, it disappears and can't be
+    unchecked, leaving no way to re-show pictures.
+- When all tags are deleted from a cell in the main table, all
+    tags for that row are deleted.
+
+
+
 v0.3.1 Fix bug causing "New Database" to fail
 
 
