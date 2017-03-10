@@ -207,6 +207,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionKeyboard_Shortcuts"/>
     <addaction name="separator"/>
     <addaction name="actionChangeLog"/>
+    <addaction name="actionLog"/>
     <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
@@ -322,6 +323,11 @@ This may take a while if there are many photos. Watch the status bar below for p
   <action name="actionKeyboard_Shortcuts">
    <property name="text">
     <string>Keyboard Shortcuts</string>
+   </property>
+  </action>
+  <action name="actionLog">
+   <property name="text">
+    <string>Log Window</string>
    </property>
   </action>
  </widget>

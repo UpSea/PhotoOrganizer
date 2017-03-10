@@ -11,7 +11,7 @@ http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
 from shared import (resource_path, __release__, organization, application,
-                    BUILD_TIME)
+                    BUILD_TIME, frozen, installDir)
 import platform
 import os
 from glob import glob
@@ -24,6 +24,7 @@ from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
 from PhotoViewer import ImageViewer
 from Dialogs import WarningDialog, warning_box, UndoDialog
 from BatchDialog import BatchTag
+from Log import LogWindow
 from datetime import datetime
 import undo
 import pdb
@@ -32,16 +33,26 @@ import pdb
 class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     """An application for filtering image data and thumbnails"""
 
-    def __init__(self, dbfile=None, parent=None):
+    def __init__(self, dbfile=None, useLogWindow=True, parent=None):
         super(PhotoOrganizer, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
         self.setWindowIcon(QtGui.QIcon(resource_path(r'icons\PO.ico')))
         self.db = PhotoDatabase(dbfile, self)
+        self.useLogWindow = useLogWindow
         self.mainWidget.setHidden(True)
         self.view.setHidden(True)
         self.treeView.setHidden(True)
         self.treeView.sourceModel.setHorizontalHeaderLabels(['Filter by Tags'])
+
+        # Set up logging
+        self._logfile = 'POLog.log'
+        if frozen:
+            self._logfile = os.path.join(installDir, self._logfile)
+            if not os.path.exists(installDir):
+                os.makedirs(installDir)
+        self.logWindow = LogWindow(self._logfile, self)
+        self.actionLog.triggered.connect(self.logWindow.showAndRestore)
 
         # Setup application organization and application name
         app = QtGui.QApplication.instance()
@@ -184,6 +195,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         if dbfile:
             self.openDatabase(str(dbfile))
 
+        # Redirect stdout and stderr
+        # Do this now because if there's a failure before now, there won't be
+        # any way to see it
+        if self.useLogWindow:
+            self.logWindow.setupOutput()
+
     def closeEvent(self, event):
         """ Re-implemented to save settings """
         # Save general App settings
@@ -201,6 +218,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Close the current album
         self.closeDatabase()
+
+        #Reset the stdout and stderr
+        self.logWindow.resetOutput()
+        self.logWindow.close()
 
     def closeDatabase(self):
         """ Close the current album to prepare to open another """
@@ -755,6 +776,10 @@ if __name__ == "__main__":
 
     app = QtGui.QApplication(sys.argv)
     main = PhotoOrganizer()
+
+#     print '*** Log Window Not Used ***'
+#     main = PhotoOrganizer(useLogWindow=False)
+
 #     main = PhotoOrganizer('TestDb2.db')
     main.resize(800, 600)
     main.show()
