@@ -188,8 +188,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.restoreGeometry(settings.value("MainWindow/Geometry").toByteArray())
         # Restore the toolbar settings
         tb = settings.value('toolbarShowing')
-        state = tb.toBool() if tb else True
+        state = tb.toBool() if tb.toPyObject() else True
         self.actionToolbar.setChecked(state)
+        self.toolBar.setVisible(state)
         # Restore the database
         dbfile = self.databaseFile or settings.value("lastDatabase").toString()
         if dbfile:
