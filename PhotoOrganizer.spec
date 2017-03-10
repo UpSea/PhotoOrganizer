@@ -26,8 +26,8 @@ def add_folder(datas, exe_root, folder):
 
 add_folder(a.datas, 'icons', r'src\icons')
 a.datas += [(r'datastore\database\create_database.sql',
-		     r'src\datastore\database\create_database.sql', 'DATA')]
-a.datas += [('ChangeLog.txt', 'ChangeLog.txt', 'DATA')]
+             r'src\datastore\database\create_database.sql', 'DATA')]
+a.datas += [('ChangeLog.txt', 'src\\ChangeLog.txt', 'DATA')]
 a.datas.append(('build_info', 'build_info', 'DATA'))
 ####################
 

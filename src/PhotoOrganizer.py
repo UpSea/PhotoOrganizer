@@ -511,7 +511,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     @QtCore.pyqtSlot()
     def on_changeLog(self):
-        os.startfile('ChangeLog.txt')
+        os.startfile(resource_path('ChangeLog.txt'))
 
     @QtCore.pyqtSlot(int)
     def on_checkDateChanged(self, state):
