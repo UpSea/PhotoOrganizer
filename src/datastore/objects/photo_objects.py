@@ -81,17 +81,41 @@ class Photo(dict):
         if date:
             try:
                 return datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
-            except (ValueError, TypeError) as err:
+            except (ValueError, TypeError):
                 return
 
     @property
+    def date(self):
+        return self[Album.dateField]
+
+    @property
+    def directory(self):
+        return self[Album.directoryField]
+
+    @property
     def fileId(self):
-        return self[Album.fileIdField]
+        if Album.fileIdField in [k.name for k in self]:
+            return self[Album.fileIdField]
+
+    @property
+    def fileName(self):
+        return self[Album.fileNameField]
 
     @property
     def filePath(self):
-        return os.path.join(self[Album.directoryField],
-                            self[Album.fileNameField])
+        return os.path.join(self.directory, self.fileName)
+
+    @property
+    def hash(self):
+        return self[Album.hashField]
+
+    @property
+    def importDate(self):
+        return self[Album.importDateField]
+
+    @property
+    def tagged(self):
+        return self[Album.taggedField]
 
 
 class Album(MutableSequence):
@@ -105,10 +129,13 @@ class Album(MutableSequence):
     """
 
     dateField = 'Date'
-    fileIdField = 'FileId'
-    taggedField = 'Tagged'
     directoryField = 'Directory'
+    fileIdField = 'FileId'
     fileNameField = 'File Name'
+    hashField = 'Hash'
+    importDateField = 'Import Date'
+    taggedField = 'Tagged'
+    thumbField = 'Image'
 
     def __init__(self, fields=None, values=None):
         fields = fields or []
@@ -179,25 +206,28 @@ class Album(MutableSequence):
     def index(self, value):
         return self._entries.index(value)
 
+    def pop(self, index):
+        return self._entries.pop(index)
+
     def initializeFields(self):
         """ Initialize the default fields """
         fields = FieldObjectContainer()
-        fdict = [{'name': 'Image', 'required': True, 'editable': False,
+        fdict = [{'name': self.thumbField, 'required': True, 'editable': False,
                   'name_editable': False},
                  {'name': self.taggedField, 'required': True,
                   'editor': FieldObject.CheckBoxEditor, 'name_editable': False},
-                 {'name': 'File Name', 'required': True, 'editable': False,
-                  'name_editable': False, 'filt': True},
+                 {'name': self.fileNameField, 'required': True,
+                  'editable': False, 'name_editable': False, 'filt': True},
                  {'name': self.dateField, 'required': True, 'editable': False,
                   'name_editable': False},
-                 {'name': 'Import Date', 'required': True, 'editable': False,
-                  'name_editable': False},
-                 {'name': 'Hash', 'required': True, 'editable': False,
+                 {'name': self.importDateField, 'required': True,
+                  'editable': False, 'name_editable': False},
+                 {'name': self.hashField, 'required': True, 'editable': False,
                   'name_editable': False, 'hidden': True},
-                 {'name': 'FileId', 'required': False, 'editable': False,
-                  'name_editable': False, 'hidden': True},
-                 {'name': 'Directory', 'required': True, 'editable': False,
-                  'name_editable': False}]
+                 {'name': self.fileIdField, 'required': False,
+                  'editable': False, 'name_editable': False, 'hidden': True},
+                 {'name': self.directoryField, 'required': True,
+                  'editable': False, 'name_editable': False}]
         for f in fdict:
             fields.append(FieldObject(**f))
         self._defaultFields = fields

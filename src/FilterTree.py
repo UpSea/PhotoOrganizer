@@ -436,7 +436,7 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
 
 if __name__ == "__main__":
 #     dbfile = 'v0.3.pdb'
-    dbfile = 'Fresh.pdb'
+    dbfile = '..\\Fresh.pdb'
     db = PhotoDatabase(dbfile)
 
     app = QtGui.QApplication([])

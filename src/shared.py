@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+import os
 
 
 __release__ = '0.5.0'
@@ -11,6 +12,9 @@ application = "PhotoOrganizer"
 
 # This is the default installation directory
 installDir = os.path.join(os.path.expanduser("~"), '.PhotoOrganizer')
+trashDir = os.path.join(installDir, '.trash')
+if not os.path.exists(trashDir):
+    os.mkdir(trashDir)
 
 
 def resource_path(relative):

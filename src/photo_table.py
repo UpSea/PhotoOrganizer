@@ -79,6 +79,19 @@ class PhotoTable(QtGui.QTableView):
         for k, v in enumerate(hide):
             hh.setSectionHidden(k, v)
 
+    def setCurrentPhoto(self, row):
+        """ Select the photo of the given row
+
+        This is the album row, not the proxy model row
+        """
+        selMod = self.selectionModel()
+        selMod.clearSelection()
+        si = self.model().sourceModel().index(row, 0)
+        i = self.model().mapFromSource(si)
+        selMod.setCurrentIndex(i, selMod.Current)
+        selMod.select(i, selMod.Select)
+        self.scrollTo(i, self.PositionAtCenter)
+
     @QtCore.pyqtSlot(QtCore.QPoint)
     def on_headerContext_requested(self, point):
         """Set up context menu for column filter.

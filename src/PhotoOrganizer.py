@@ -10,22 +10,23 @@ http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 """
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
-from shared import (resource_path, __release__, organization, application,
-                    BUILD_TIME, frozen, installDir)
-import platform
-import os
-from glob import glob
-from PIL import Image
-from io import BytesIO
-import imagehash
-import sqlite3
+from BatchDialog import BatchTag
 from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
                        AlbumSortFilterModel, PhotoDatabase, create_database)
-from PhotoViewer import ImageViewer
-from Dialogs import WarningDialog, warning_box, UndoDialog
-from BatchDialog import BatchTag
-from Log import LogWindow
 from datetime import datetime
+from Dialogs import WarningDialog, warning_box, UndoDialog
+from glob import glob
+import imagehash
+from io import BytesIO
+from Log import LogWindow
+import os
+from PhotoViewer import ImageViewer
+from PIL import Image
+import platform
+from send2trash import send2trash
+from shared import (resource_path, __release__, organization, application,
+                    BUILD_TIME, frozen, installDir, trashDir)
+import sqlite3
 import undo
 import pdb
 
@@ -159,6 +160,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.db.newDatabase.connect(self.imageViewer.treeView.newConnection)
         self.db.databaseChanged.connect(self.treeView.updateTree)
         self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
+        self.imageViewer.sigDelete.connect(self.on_viewerDelete)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -204,6 +206,26 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     def closeEvent(self, event):
         """ Re-implemented to save settings """
+        # Handle trashed files
+        trashfiles = os.listdir(trashDir)
+        if trashfiles:
+            dlg = WarningDialog('Trash Files', self)
+            dlg.setText('The following files deleted by Photo Organizer '
+                        'are stored here:\n{}'.format(trashDir))
+            dlg.setQuestionText('Do you want to move them to the Recycle Bin?')
+            dlg.setDetailedText('\n'.join(trashfiles))
+            dlg.addButton("Don't Recycle", dlg.buttonBox.AcceptRole)
+            rec = dlg.addButton('Recycle', dlg.buttonBox.AcceptRole)
+            dlg.addButton(dlg.buttonBox.Cancel)
+            rec.setDefault(True)
+            if dlg.exec_():
+                if dlg.clickedButton() == rec:
+                    trsh = [os.path.join(trashDir, k) for k in trashfiles]
+                    map(send2trash, trsh)
+            else:
+                event.setAccepted(False)
+                return
+
         # Save general App settings
         settings = QtCore.QSettings()
         settings.clear()
@@ -220,7 +242,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Close the current album
         self.closeDatabase()
 
-        #Reset the stdout and stderr
+        # Reset the stdout and stderr
         self.logWindow.resetOutput()
         self.logWindow.close()
 
@@ -747,6 +769,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         Slot for the menu action
         """
         self.undoDialog.show()
+
+    @QtCore.pyqtSlot(object)
+    def on_viewerDelete(self, photo):
+        """ Delete a single photo """
+        cmd = undo.removeRowCmd(self, photo)
+        self.undoStack.push(cmd)
 
     #####################
     #     PROPERTIES    #

@@ -99,7 +99,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
     def removeRows(self, position, rows=0, index=model_idx()):
         """ Model required function for removing rows """
         self.beginRemoveRows(QtCore.QModelIndex(), position, position + rows)
-        self.dataset.removeEntry(position)
+        self.dataset.pop(position)
         self.endRemoveRows()
         return True
 

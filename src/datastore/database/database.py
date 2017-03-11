@@ -44,6 +44,19 @@ class PhotoDatabase(QtCore.QObject):
     #  Query Methods  #
     ###################
 
+    def deleteFile(self, filId):
+        """ Delete the file with the given id and its associated tag mappings
+
+        Arguments:
+            filId (int): The database file id to be deleted
+        """
+        with self.connect() as con:
+            q1 = 'DELETE FROM TagMap WHERE FilId == ?'
+            cur = con.execute(q1, (filId,))
+
+            q2 = 'DELETE FROM File WHERE FilId == ?'
+            cur.execute(q2, (filId,))
+
     def dropField(self, name):
         """ Drop a category from the database. All tags associated with that
         category will be removed
@@ -113,6 +126,70 @@ class PhotoDatabase(QtCore.QObject):
 
         self.databaseChanged.emit()
         return newId
+
+    def insertFile(self, photo):
+        """ Insert a photo into the database from a photo object
+
+        Arguments:
+            photo (Photo): The photo object to be inserted
+        """
+        # Create the thumbnail blob
+        if photo.thumb:
+            pix = photo.thumb.pixmap(photo.thumb.availableSizes()[0])
+            buff = QtCore.QBuffer()
+            buff.open(QtCore.QIODevice.ReadWrite)
+            pix.save(buff, 'png')
+            thumb = sqlite3.Binary(buff.data())
+        else:
+            thumb = None
+
+        # Get the default columns and values
+        fields = ['tagged', 'filename', 'directory', 'filedate', 'hash',
+                  'thumbnail']
+        date = photo.datetime or photo.date
+        values = [photo.tagged, photo.fileName, photo.directory, date,
+                  photo.hash, thumb]
+
+        with self.connect() as con:
+            if photo.fileId is None:
+                # Let the database fill in the FileID and Import Time
+                iqry = 'INSERT INTO File (filename, directory, filedate, ' + \
+                       'hash, thumbnail) VALUES (?,?,?,?,?)'
+                cur = con.execute(iqry, values)
+                filId = cur.lastrowid
+
+                # Set the photo's file id and import time
+                photo[Album.fileIdField] = filId
+                impQry = 'SELECT importTimeUTC FROM File WHERE FilId == ?'
+                cur = cur.execute(impQry, (filId,))
+                photo[Album.importDateField] = cur.fetchone()[0]
+            else:
+                # The photo already has a file id and import time
+                fields += ['FilId', 'importTimeUTC']
+                values += [int(photo.fileId), photo.importDate]
+
+                fieldStr = ','.join(fields)
+                parStr = ','.join(['?']*len(fields))
+                iqry = 'INSERT INTO File ({}) VALUES ({})'.format(fieldStr, parStr)
+                cur = con.execute(iqry, values)
+
+            # Add the tag mappings
+            pTagFields = [k for k in photo if k.tags]
+            tfq = 'SELECT FieldId from Fields WHERE Name == ?'
+            tq = 'SELECT TagId FROM Tags WHERE FieldId == ? AND Value == ?'
+            tmq = 'INSERT INTO TagMap (FilId, TagId) VALUES (?,?)'
+            tmps = []
+            for field in pTagFields:
+                # Get the field id
+                fieldId = con.execute(tfq, (field.name,)).fetchone()[0]
+
+                tags = photo.tags(field)
+                for tag in tags:
+                    # Get the tag id
+                    tagId = con.execute(tq, (fieldId, tag)).fetchone()[0]
+                    # INSERT the tag map
+                    tmps.append((photo.fileId, tagId))
+            con.executemany(tmq, tmps)
 
     def insertTags(self, fieldIds, tagValues=None):
         """ Insert a new tag. Return the id of the new tag. Return a list of

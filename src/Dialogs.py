@@ -104,8 +104,21 @@ def warning_box(msg, parent=None):
 
 
 if __name__ == "__main__":
+    import os
     app = QtGui.QApplication([])
 
-    dlg = WarningDialog()
-    dlg.show()
-    app.exec_()
+    trashDir = r'C:\Users\Luke\.PhotoOrganizer\.trash'
+    trashfiles = os.listdir(trashDir)
+    if trashfiles:
+        dlg = WarningDialog('Trash Files')
+        dlg.setText('The following files deleted by Photo Organizer \n'
+                    'are stored here:\n{}'.format(trashDir))
+        dlg.setQuestionText('Do you want to move them to the Recycle Bin?')
+        dlg.setDetailedText('\n'.join(trashfiles))
+        dlg.addButton("Don't Recycle", dlg.buttonBox.AcceptRole)
+        rec = dlg.addButton('Recycle', dlg.buttonBox.AcceptRole)
+        dlg.addButton(dlg.buttonBox.Cancel)
+        rec.setDefault(True)
+    print dlg.exec_()
+    print dlg.clickedButton() == rec
+

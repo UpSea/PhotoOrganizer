@@ -7,6 +7,8 @@ from UIFiles import Ui_ImageViewer
 class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
     """ An image viewer """
 
+    sigDelete = QtCore.pyqtSignal(object)
+
     def __init__(self, imagefile=None, albumModel=None, parent=None):
         super(ImageViewer, self).__init__(parent)
         self.setupUi(self)
@@ -32,6 +34,10 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.actionNext = QtGui.QAction(nextIcon, 'Next', self)
         self.actionNext.triggered.connect(self.on_next)
         self.toolBar.addAction(self.actionNext)
+        delIcon = QtGui.QIcon(r'icons\delete.ico')
+        self.actionDelete = QtGui.QAction(delIcon, 'Delete', self)
+        self.actionDelete.triggered.connect(self.on_delete)
+        self.toolBar.addAction(self.actionDelete)
 
         # Set the first image
         self.imageList = []
@@ -111,6 +117,21 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
             index = len(self.imageList) - 1
         else:
             index = self.imageShowing - 1
+        self.setImage(index)
+
+    @QtCore.pyqtSlot()
+    def on_delete(self):
+        """ Delete the current photo """
+        self.sigDelete.emit(self.imageList[self.imageShowing])
+
+        # Update the image showing
+        index = self.imageShowing
+        self.imageList.pop(index)
+        if len(self.imageList) == 0:
+            self.close()
+            return
+        if index >= len(self.imageList):
+            index = len(self.imageList) - 1
         self.setImage(index)
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
