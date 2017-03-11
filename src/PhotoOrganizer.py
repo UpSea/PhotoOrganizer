@@ -38,7 +38,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         super(PhotoOrganizer, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Photo Organizer')
-        self.setWindowIcon(QtGui.QIcon(resource_path(r'icons\PO.ico')))
+        poIcon = QtGui.QIcon(resource_path(r'icons\PO.ico'))
+        self.setWindowIcon(poIcon)
         self.db = PhotoDatabase(dbfile, self)
         self.useLogWindow = useLogWindow
         self.mainWidget.setHidden(True)
@@ -129,6 +130,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Create the image viewer window
         self.imageViewer = ImageViewer(albumModel=self.model)
+        self.imageViewer.setWindowIcon(poIcon)
         self.imageViewer.treeView.setMode(self.treeView.TagMode)
         self.imageViewer.treeView.setDb(self.db)
 

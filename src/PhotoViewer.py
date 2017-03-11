@@ -89,7 +89,7 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.treeView.sourceModel.blockSignals(False)
         self.treeView.expandAll()
         fileName = photo[Album.fileNameField]
-        self.treeView.sourceModel.setHorizontalHeaderLabels([fileName + ' Tags'])
+        self.treeView.sourceModel.setHorizontalHeaderLabels(['Tags: ' + fileName])
 
         # Fit the image. This doesn't work unless it is done after
         # the method has returned, hence the singleshot timer
