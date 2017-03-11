@@ -24,10 +24,12 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.treeView.sourceModel.dataChanged.connect(self.on_filterChanged)
 
         # Create next/back actions
-        self.actionBack = QtGui.QAction('<', self)
+        backIcon = QtGui.QIcon(r'icons\prev_arrow.png')
+        self.actionBack = QtGui.QAction(backIcon, 'Previous', self)
         self.actionBack.triggered.connect(self.on_back)
         self.toolBar.addAction(self.actionBack)
-        self.actionNext = QtGui.QAction('>', self)
+        nextIcon = QtGui.QIcon(r'icons\next_arrow.png')
+        self.actionNext = QtGui.QAction(nextIcon, 'Next', self)
         self.actionNext.triggered.connect(self.on_next)
         self.toolBar.addAction(self.actionNext)
 
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     from datastore import PhotoDatabase
     app = QtGui.QApplication([])
 
-    dbfile = 'Fresh.pdb'
+    dbfile = '..\Fresh.pdb'
     db = PhotoDatabase(dbfile)
     album = db.load(dbfile)[0]
 
