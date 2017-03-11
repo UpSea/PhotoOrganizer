@@ -327,7 +327,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
         Arguments:
             row (int)
         """
-        date = self.dataset[row].date
+        date = self.dataset[row].datetime
         return QtCore.QDate(date) if date else None
 
 

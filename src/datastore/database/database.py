@@ -1,11 +1,10 @@
 """ A module for interacting with the photo database file """
 import sqlite3
-from datastore import FieldObjectContainer, FieldObject, Album, Photo
+from .. import FieldObjectContainer, FieldObject, Album, Photo
 from PyQt4 import QtGui, QtCore
 from io import BytesIO
-from versions import convertCheck, convertVersion
 from Dialogs import WarningDialog
-from Tkconstants import YES
+from versions import convertCheck, convertVersion
 
 
 class PhotoDatabase(QtCore.QObject):
@@ -94,18 +93,6 @@ class PhotoDatabase(QtCore.QObject):
             con.close()
         return out
 
-    def tagsByFileId(self, fileId):
-        """ Return a list of Tag IDs that are applied to the given photo
-
-        Arguments:
-            fileId (int): The database ID of the photo
-        """
-        q = ('SELECT t.TagId FROM TagMap as tm JOIN Tags as t ON '
-             't.TagId == tm.TagId WHERE tm.FilId == ?')
-        with self.connect() as con:
-            res = con.execute(q, (fileId,))
-            return [k[0] for k in res]
-
     def insertField(self, fieldobj):
         """ Insert a new field. Return the id of the new category
 
@@ -170,7 +157,7 @@ class PhotoDatabase(QtCore.QObject):
                 the database
         """
         # Create the query strings
-        qry = 'SELECT directory, filename, date, hash, thumbnail, FilId, '+\
+        qry = 'SELECT directory, filename, filedate, hash, thumbnail, FilId, '+\
               'tagged, datetime(importTimeUTC, "localtime") FROM File'
 
         # Check the file
@@ -185,9 +172,9 @@ class PhotoDatabase(QtCore.QObject):
 
         if convert:
             dlg = WarningDialog('Old Version', self.parent())
-            dlg.setText('This file is an old version ({}) that needs to be '
+            dlg.setText('{}\nThis file is an old version ({}) that needs to be '
                         'converted.\nA backup copy will be saved before '
-                        'conversion.'.format(ver))
+                        'conversion.'.format(dbfile, ver))
             dlg.setQuestionText('Do you want to continue?')
             yes = dlg.addButton(QtGui.QDialogButtonBox.Yes)
             dlg.addButton(QtGui.QDialogButtonBox.No)
@@ -308,6 +295,18 @@ class PhotoDatabase(QtCore.QObject):
             if dcommands:
                 con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
         self.databaseChanged.emit()
+
+    def tagsByFileId(self, fileId):
+        """ Return a list of Tag IDs that are applied to the given photo
+
+        Arguments:
+            fileId (int): The database ID of the photo
+        """
+        q = ('SELECT t.TagId FROM TagMap as tm JOIN Tags as t ON '
+             't.TagId == tm.TagId WHERE tm.FilId == ?')
+        with self.connect() as con:
+            res = con.execute(q, (fileId,))
+            return [k[0] for k in res]
 
     def updateAppData(self, **kwargs):
         """ Save database-specific settings
@@ -438,29 +437,3 @@ class PhotoDatabase(QtCore.QObject):
     @property
     def dbfile(self):
         return self._dbfile
-
-
-if __name__ == "__main__":
-    app = QtGui.QApplication([])
-#     from create_database import create_database
-    dbfile = r"C:\Users\Luke\Files\Python\workspace\PicOrganizer\Fresh.pdb"
-#     create_database(dbfile)
-    db = PhotoDatabase(dbfile)
-#     db.insertField(FieldObject('People'))
-#     print db.getTableAsDict('Fields')
-#     print db.getTableAsDict('Fields', onePer=False)
-
-#     with db.connect() as con:
-#         try:
-#             con.execute('INSERT INTO Tags (CatId, Value) VALUES (1, "Evelyn")')
-#         except sqlite3.IntegrityError:
-#             print 'failed'
-
-#     db.dropField('Joe')
-
-#     album = db.load(dbfile)
-
-    print db.tagsByFileId(1)
-
-#     import pdb
-#     pdb.set_trace()

@@ -3,6 +3,7 @@ from collections import MutableSequence
 from datetime import datetime
 import re
 import os.path
+import traceback
 import pdb
 
 # Handle python versions
@@ -24,13 +25,12 @@ class Photo(dict):
         tagged (bool): Whether or not tagging has been completed
     """
 
-    def __init__(self, fields=None, values=None, thumb=None, tagged=False):
+    def __init__(self, fields=None, values=None, thumb=None):
         fields = fields or []
         assert isinstance(fields, (list, FieldObjectContainer))
         assert all([isinstance(k, FieldObject) for k in fields])
         values = ['' for _ in fields] if values is None else values
         self.thumb = thumb
-        self.tagged = tagged
         assert len(fields) == len(values)
 
         super(Photo, self).__init__(zip(fields, values))
@@ -74,14 +74,14 @@ class Photo(dict):
         return self.splitTags(self[field])
 
     @property
-    def date(self):
+    def datetime(self):
         fieldnames = [k.name for k in self.keys()]
         dateField = Album.dateField
         date = self[dateField] if dateField in fieldnames else None
         if date:
             try:
-                return datetime.strptime(date, '%Y:%m:%d %H:%M:%S')
-            except ValueError:
+                return datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
+            except (ValueError, TypeError) as err:
                 return
 
     @property
@@ -294,7 +294,7 @@ if __name__ == "__main__":
             self.assertEqual(self.photo['Field1'], 'meta1')
 
         def test_date(self):
-            self.assertEqual(self.photo.date, datetime(2017, 1, 1, 0, 0, 1))
+            self.assertEqual(self.photo.datetime, datetime(2017, 1, 1, 0, 0, 1))
 
     class AlbumTest(unittest.TestCase):
 

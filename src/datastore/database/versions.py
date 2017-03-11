@@ -1,7 +1,7 @@
 import sqlite3
 from utl import compareRelease, compareMinor
 from shared import __release__
-from converters import _convert02to03
+from converters import _convert03to05
 
 
 def convertCheck(dbfile):
@@ -19,9 +19,9 @@ def convertCheck(dbfile):
         except:
             return False, None, 0
 
-    if compareMinor(fileVersion, '0.2') < 0:
-        return False, None, fileVersion
     if compareMinor(fileVersion, '0.3') < 0:
+        return False, None, fileVersion
+    if compareMinor(fileVersion, '0.5') < 0:
         return True, True, fileVersion
     return True, False, fileVersion
 
@@ -33,9 +33,9 @@ def convertVersion(dbfile):
     a message.
     """
     ver = convertCheck(dbfile)[2]
-    if (compareRelease(ver, '0.2') > 0 and
-            compareRelease(__release__, '0.3') >= 0):
-        return _convert02to03(dbfile)
+    if (compareRelease(ver, '0.3') >= 0 and
+            compareRelease(__release__, '0.5') >= 0):
+        return _convert03to05(dbfile)
 
 
 if __name__ == "__main__":

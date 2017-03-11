@@ -264,7 +264,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             pattern = os.path.join(directory, '*.%s' % str(extension))
             images.extend(glob(pattern))
 
-        iqry = 'INSERT INTO File (filename, directory, date, hash, ' + \
+        iqry = 'INSERT INTO File (filename, directory, filedate, hash, ' + \
                'thumbnail) VALUES (?,?,?,?,?)'
         exHash = [(k['File Name'], k['Hash']) for k in self.album]
         exFiles = [os.path.join(k['Directory'], k['File Name'])
@@ -292,12 +292,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                     continue
                 # Try to get date from exif
                 if exif and 36867 in exif:
-                    date = exif[36867]
+                    ds = exif[36867]
+                    dt = datetime.strptime(ds, '%Y:%m:%d %H:%M:%S')
+                    date = dt.strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     # Use modified time (not as reliable)
                     timestamp = os.path.getmtime(path)
                     dt = datetime.fromtimestamp(timestamp)
-                    date = dt.strftime('%Y:%m:%d %H:%M:%S')
+                    date = dt.strftime('%Y-%m-%d %H:%M:%S')
                 sz = 400
                 im.thumbnail((sz, sz))
                 fp = BytesIO()
@@ -307,8 +309,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 cur.execute(iqry, [fname, directory, date, str(hsh),
                                    sqlite3.Binary(fp.getvalue())])
                 fileId = cur.lastrowid
-                cur.execute('SELECT importTimeUTC FROM File WHERE FilId=?',
-                            (fileId,))
+                cur.execute('SELECT datetime(importTimeUTC, "localtime") FROM '
+                            'File WHERE FilId=?', (fileId,))
                 importTime = cur.fetchone()[0]
 
                 pix = QtGui.QPixmap()
@@ -443,9 +445,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Set the date edits for a range """
         def timestamp(x):
             try:
-                dt = datetime.strptime(x['Date'], '%Y:%m:%d %H:%M:%S')
-                return dt.toordinal()
-            except ValueError:
+                dt = datetime.strptime(x['Date'], '%Y-%m-%d %H:%M:%S')
+                return x.datetime.toordinal()
+            except (ValueError, TypeError):
                 return
 
         timestamps = [k for k in map(timestamp, self.album) if k]

@@ -5,7 +5,7 @@ CREATE TABLE File (FilId INTEGER PRIMARY KEY AUTOINCREMENT,
                    tagged INTEGER,
                    filename TEXT,
                    directory TEXT,
-                   date TEXT,
+                   filedate DATETIME,
                    hash TEXT,
                    thumbnail BLOB,
                    importTimeUTC DATETIME DEFAULT CURRENT_TIMESTAMP);
