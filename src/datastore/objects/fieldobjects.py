@@ -119,6 +119,9 @@ class FieldObjectContainer(MutableSequence):
     def __init__(self, name=None, required=None, editor=None,
                  editable=None, name_editable=None, hidden=None,
                  filt=None, tags=None):
+        def makeBool(lst):
+            if lst is not None:
+                return [bool(k) for k in lst]
         if name is None:
             self._fieldobjs = []
         else:
@@ -130,12 +133,12 @@ class FieldObjectContainer(MutableSequence):
                 # Create field objects from string inputs
                 nfields = len(name)
                 editor = editor or [None]*nfields
-                required = required or [False]*nfields
-                editable = editable or [True]*nfields
-                name_editable = name_editable or [True]*len(name)
-                hidden = hidden or [False]*nfields
-                filts = filt or [False]*nfields
-                tags = tags or [False]*nfields
+                required = makeBool(required) or [False]*nfields
+                editable = makeBool(editable) or [True]*nfields
+                name_editable = makeBool(name_editable) or [True]*nfields
+                hidden = makeBool(hidden) or [False]*nfields
+                filts = makeBool(filt) or [False]*nfields
+                tags = makeBool(tags) or [False]*nfields
                 inputs = zip(name, required, editor, editable,
                              name_editable, hidden, filts, tags)
                 self._fieldobjs = [FieldObject(*args) for args in inputs]
