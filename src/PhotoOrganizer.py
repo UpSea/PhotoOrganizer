@@ -522,9 +522,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Get a dictionary of new tags with field names as keys
         checkedTags = dlg.treeView.getCheckedTagDict(QtCore.Qt.Checked)
         uncheckedTags = dlg.treeView.getCheckedTagDict(QtCore.Qt.Unchecked)
-        if not checkedTags:
-            warning_box('No Tags Selected', self)
-            return
 
         if markTagged:
             checkedTags[self.album.taggedField] = QtCore.QVariant(True)
