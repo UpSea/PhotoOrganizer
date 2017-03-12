@@ -87,7 +87,6 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.treeView.sourceModel.blockSignals(True)
         self.treeView.checkFileTags(photo.fileId)
         self.treeView.sourceModel.blockSignals(False)
-        self.treeView.expandAll()
         fileName = photo[Album.fileNameField]
         self.treeView.sourceModel.setHorizontalHeaderLabels(['Tags: ' + fileName])
 
