@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-import os
 
 
 __release__ = '0.5.0'

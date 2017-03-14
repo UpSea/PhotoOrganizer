@@ -15,10 +15,12 @@ from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
                        AlbumSortFilterModel, PhotoDatabase, create_database)
 from datetime import datetime
 from Dialogs import WarningDialog, warning_box, UndoDialog
+from genericdialogs import skipFileDialog, ProgressDialog
 from glob import glob
 import imagehash
 from io import BytesIO
 from Log import LogWindow
+from moveCopy import Mover
 import os
 from PhotoViewer import ImageViewer
 from PIL import Image
@@ -96,6 +98,13 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionRedo.setShortcut('Ctrl+Y')
         self.menuEdit.addAction(self.actionRedo)
 
+        copy = QtGui.QIcon(resource_path(r'icons\copy.png'))
+        self.actionCopyPhotos = QtGui.QAction(copy, 'Copy To', self.menuEdit)
+        self.menuEdit.addAction(self.actionCopyPhotos)
+#         move = QtGui.QIcon(resource_path(r'icons\move.png'))
+#         self.actionMovePhotos = QtGui.QAction(move, 'Move To', self.menuEdit)
+#         self.menuEdit.addAction(self.actionMovePhotos)
+
         # Instantiate an empty dataset and model
         album = Album()
         self.model = AlbumModel(album)
@@ -114,6 +123,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Set up the toolbar
         self.toolBar.addAction(self.actionUndo)
         self.toolBar.addAction(self.actionRedo)
+        self.toolBar.addAction(self.actionCopyPhotos)
+#         self.toolBar.addAction(self.actionMovePhotos)
 
         def add_shortcut(action):
             shortcut = action.shortcut().toString()
@@ -163,6 +174,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.db.databaseChanged.connect(self.treeView.updateTree)
         self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
         self.imageViewer.sigDelete.connect(self.on_viewerDelete)
+        self.actionCopyPhotos.triggered.connect(self.on_copyPhotos)
+#         self.actionCopyPhotos.triggered.connect(self.on_movePhotos)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -532,6 +545,21 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Batch-add the tags
         self.model.batchAddTags(selectedRows, checkedTags, uncheckedTags)
 
+    @QtCore.pyqtSlot(list, list)
+    def on_albumDataChanged(self, fileIds, fieldnames):
+        """ Update the database when user changes data
+
+        Slot for model.dataChanged
+
+        Arguments:
+            fileIds (list): A list of database file ids
+            fieldnames (list): A list of field names
+        """
+        QtGui.qApp.processEvents()
+        self.db.updateAlbum(self.album, fileIds, fieldnames)
+
+        self.proxy.invalidate()
+
     @QtCore.pyqtSlot()
     def on_changeLog(self):
         os.startfile(resource_path('ChangeLog.txt'))
@@ -569,20 +597,56 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.dateFrom.setDisplayFormat(displayFormats[filt])
         self.dateTo.setDisplayFormat(displayFormats[filt])
 
-    @QtCore.pyqtSlot(list, list)
-    def on_albumDataChanged(self, fileIds, fieldnames):
-        """ Update the database when user changes data
-
-        Slot for model.dataChanged
-
-        Arguments:
-            fileIds (list): A list of database file ids
-            fieldnames (list): A list of field names
+    @QtCore.pyqtSlot()
+    def on_copyPhotos(self):
+        """ Prompt the user to chose a directory and copy all files in current
+        filter to that folder
         """
-        QtGui.qApp.processEvents()
-        self.db.updateAlbum(self.album, fileIds, fieldnames)
+        # Prompt user
+        gxd = QtGui.QFileDialog.getExistingDirectory
+        folder = str(gxd(self, "Export Folder", self.options['importFolder']))
+        if not folder:
+            return  # Canceled
 
-        self.proxy.invalidate()
+        # Get all the files
+        doAll = False
+        nFiles = self.proxy.rowCount()
+
+        def getSrcDest(row):
+            i = self.proxy.mapToSource(self.proxy.index(row, 0))
+            r = i.row()
+            src = self.album[r].filePath
+            fn = os.path.split(src)[1]
+            return (src, os.path.join(folder, fn))
+
+        allFiles = [getSrcDest(r) for r in range(nFiles)]
+
+        # Handle conflicts
+        conflicts = [k for k in allFiles if os.path.exists(k[1])]
+        for k, paths in enumerate(conflicts):
+            thisPath = paths[0]
+            remaining = len(conflicts) - k - 1
+            if not doAll:
+                msgBox = skipFileDialog('File(s) Exist', thisPath)
+                msg = 'File Exists:\n{}!'
+                msgBox.setText(msg.format(thisPath))
+                if remaining > 0:
+                    msgBox.setCheckBoxValue(remaining)
+                msgBox.checkBox.setChecked(k == 0)
+                msgBox.exec_()
+                doAll = msgBox.checkBox.isChecked()
+            if msgBox.canceled:
+                return
+            elif msgBox.keep:
+                i = allFiles.index(paths)
+                allFiles[i] = (thisPath, os.path.join(folder, msgBox.newName))
+            elif msgBox.skip:
+                allFiles.remove(paths)
+
+        # Copy the files with progress dialog
+        mover = Mover(allFiles, Mover.COPY)
+        copyProgress = ProgressDialog(mover, 'Copying Files', 3, parent=self)
+        copyProgress.exec_()
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
     def on_doubleClick(self, index):
