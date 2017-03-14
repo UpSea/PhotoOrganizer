@@ -2,6 +2,7 @@
 from PyQt4 import QtCore, QtGui
 from datastore import Album
 from UIFiles import Ui_ImageViewer
+from shared import resource_path
 
 
 class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
@@ -26,15 +27,15 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.treeView.sourceModel.dataChanged.connect(self.on_filterChanged)
 
         # Create next/back actions
-        backIcon = QtGui.QIcon(r'icons\prev_arrow.png')
+        backIcon = QtGui.QIcon(resource_path(r'icons\prev_arrow.png'))
         self.actionBack = QtGui.QAction(backIcon, 'Previous', self)
         self.actionBack.triggered.connect(self.on_back)
         self.toolBar.addAction(self.actionBack)
-        nextIcon = QtGui.QIcon(r'icons\next_arrow.png')
+        nextIcon = QtGui.QIcon(resource_path(r'icons\next_arrow.png'))
         self.actionNext = QtGui.QAction(nextIcon, 'Next', self)
         self.actionNext.triggered.connect(self.on_next)
         self.toolBar.addAction(self.actionNext)
-        delIcon = QtGui.QIcon(r'icons\delete.ico')
+        delIcon = QtGui.QIcon(resource_path(r'icons\delete.ico'))
         self.actionDelete = QtGui.QAction(delIcon, 'Delete', self)
         self.actionDelete.triggered.connect(self.on_delete)
         self.toolBar.addAction(self.actionDelete)

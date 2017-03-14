@@ -50,7 +50,7 @@ def main():
 
     # Build the UI_Files
     print("Building UI files")
-    BuildUiFiles.main('', [r'src\UIFiles'])
+    BuildUiFiles.main('', [r'src\UIFiles', r'src\genericdialogs\UIFiles'])
 
     print("PyInstaller Building executable")
     # Build the executable

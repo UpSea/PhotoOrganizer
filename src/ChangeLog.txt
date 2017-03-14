@@ -1,3 +1,16 @@
+v0.5.0
+Updates:
+- Updated database will require conversion
+- Removed compatibility with pre-0.3 databases
+- Added Delete toolbar button to Photo Viewer
+- Add Copy To toolbar button
+
+Bug Fixes:
+- Group Tag warns "No Tags Selected" when only Mark Tagged or Un-mark
+   tagged are checked
+- All tag fields expand whenever picture changes in viewer.
+
+
 v0.4.0
 Updates:
 - This release ships as installer executable, rather than zip file that
