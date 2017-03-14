@@ -187,7 +187,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
         command = batchAddCmd(self, rows, values, rvalues)
         self.undoStack.push(command)
 
-    def _batchAddTags(self, rows, values, rvalues=None):
+    def _batchAddTags(self, rows, values, rvalues={}):
         """ A private method for batch-adding tags
 
         Same description and arguments as the public method
@@ -202,13 +202,13 @@ class AlbumModel(QtCore.QAbstractTableModel):
             rvalues = [rvalues]*len(rows)
         old = [{f: None for f in values[0]} for _ in rows]
         # Loop over columns then rows to set the data for each index
-        for fieldname in values[0]:
+        for fieldname in set(values[0].keys() + rvalues[0].keys()):
             col = self.dataset.fields.index(fieldname)
             field = self.dataset.fields[col]
             left = min(left, col)
             right = max(right, col)
             for r, row in enumerate(rows):
-                newTags = values[r][fieldname]
+                newTags = values[r].get(fieldname, [])
                 index = self.index(row, col)
                 # Store old value as QVariant. Then on undo we just set
                 # directly rather than figuring out the new tags
@@ -231,6 +231,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
                                 oldTags.pop(oldTagsLow.index(rv.lower()))
                                 oldTagsLow.remove(rv.lower())
 
+                    # Add the tags to be added
                     replace = oldTags + [k for k in newTags
                                          if k not in oldTags]
                     cvalue = self._getSetValue(field,
