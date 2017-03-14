@@ -113,8 +113,10 @@ class FieldObjectContainer(MutableSequence):
     # Define a list of properties for use when storing to database
     # In the future, this could be used with **kwargs and a simpler way of
     # Assigning properties
-    fieldProps = ['Name', 'Required', 'Editor', 'Editable',
-                  'Name_Editable', 'Hidden', 'Filt', 'Tags']
+    # Keys are database columns, values are field property names
+    fieldProps = {'Name': 'name', 'Required': 'required', 'Editor': 'editor',
+                  'Editable': 'editable', 'Name_Editable': 'name_editable',
+                  'Hidden': 'hidden', 'Filt': 'filter', 'Tags': 'tags'}
 
     def __init__(self, name=None, required=None, editor=None,
                  editable=None, name_editable=None, hidden=None,
@@ -223,6 +225,8 @@ class FieldObjectContainer(MutableSequence):
             return self._fieldobjs.index(value)
 
     def remove(self, value):
+        if isinstance(value, basestring):
+            value = self[value]
         self._fieldobjs.remove(value)
 
     @property

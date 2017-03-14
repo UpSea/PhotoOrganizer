@@ -106,13 +106,12 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 #         self.menuEdit.addAction(self.actionMovePhotos)
 
         # Instantiate an empty dataset and model
-        album = Album()
-        self.model = AlbumModel(album)
+        self.model = AlbumModel(self.db)
         self.model.undoStack = self.undoStack
 
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
-        self.proxy.setFilterKeyColumn(2)
+        self.proxy.setDynamicSortFilter(True)
 
         self.view.setIconSize(QtCore.QSize(100, 100))
         self.view.setModel(self.proxy)
@@ -146,7 +145,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.imageViewer.treeView.setDb(self.db)
 
         # Signal Connections
-        self.model.albumDataChanged.connect(self.on_albumDataChanged)
         self.editFilter.textChanged.connect(self.on_editFilterTextChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
@@ -169,8 +167,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.treeModel.dataChanged.connect(self.proxy.invalidate)
         self.buttonClearFilter.clicked.connect(self.on_clearFilter)
         self.actionUndoList.triggered.connect(self.on_undoList)
-        self.db.newDatabase.connect(self.treeView.newConnection)
-        self.db.newDatabase.connect(self.imageViewer.treeView.newConnection)
+        self.db.sigNewDatabase.connect(self.treeView.newConnection)
+        self.db.sigNewDatabase.connect(self.imageViewer.treeView.newConnection)
         self.db.databaseChanged.connect(self.treeView.updateTree)
         self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
         self.imageViewer.sigDelete.connect(self.on_viewerDelete)
@@ -270,12 +268,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         if self.databaseFile is None:
             return
 
-        # Save fields
-        self.db.setFields(self.fields)
-
         # Save database-specific settings
         self.saveAppData()
-        self.db.setDatabaseFile(None)
+        self.db.closeDatabase()
 
     def saveAppData(self):
         """ Save database-specific settings """
@@ -301,80 +296,70 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             pattern = os.path.join(directory, '*.%s' % str(extension))
             images.extend(glob(pattern))
 
-        iqry = 'INSERT INTO File (filename, directory, filedate, hash, ' + \
-               'thumbnail) VALUES (?,?,?,?,?)'
         exHash = [(k['File Name'], k['Hash']) for k in self.album]
         exFiles = [os.path.join(k['Directory'], k['File Name'])
                    for k in self.album]
-        with sqlite3.connect(dbfile) as con:
-            con.text_factory = str
-            con.execute('PRAGMA foreign_keys = 1')
-            cur = con.cursor()
-            # Loop over all images and add to the table
-            changeDir = []
-            for k, path in enumerate(images):
-                # See if this file is already in the database
-                if path in exFiles:
-                    continue
 
-                # Split off the filename
-                fname = os.path.split(path)[1]
+        # Loop over all images and add to the table
+        changeDir = []
+        for k, path in enumerate(images):
+            # See if this file is already in the database
+            if path in exFiles:
+                continue
 
-                # Read the scaled image into a byte array
-                im = Image.open(path)
-                exif = im._getexif()
-                hsh = imagehash.average_hash(im)
-                if (fname, str(hsh)) in exHash:
-                    changeDir.append(path)
-                    continue
-                # Try to get date from exif
-                if exif and 36867 in exif:
-                    ds = exif[36867]
+            # Split off the filename
+            fname = os.path.split(path)[1]
+
+            # Read the scaled image into a byte array
+            im = Image.open(path)
+            exif = im._getexif()
+            hsh = imagehash.average_hash(im)
+            if (fname, str(hsh)) in exHash:
+                changeDir.append(path)
+                continue
+            # Try to get date from exif
+            date = None
+            if exif and 36867 in exif:
+                ds = exif[36867]
+                try:
                     dt = datetime.strptime(ds, '%Y:%m:%d %H:%M:%S')
                     date = dt.strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    # Use modified time (not as reliable)
-                    timestamp = os.path.getmtime(path)
-                    dt = datetime.fromtimestamp(timestamp)
-                    date = dt.strftime('%Y-%m-%d %H:%M:%S')
-                sz = 400
-                im.thumbnail((sz, sz))
-                fp = BytesIO()
-                im.save(fp, 'png')
+                except ValueError:
+                    pass
 
-                # Add the model items
-                cur.execute(iqry, [fname, directory, date, str(hsh),
-                                   sqlite3.Binary(fp.getvalue())])
-                fileId = cur.lastrowid
-                cur.execute('SELECT datetime(importTimeUTC, "localtime") FROM '
-                            'File WHERE FilId=?', (fileId,))
-                importTime = cur.fetchone()[0]
+            if date is None:
+                # Use modified time (not as reliable)
+                timestamp = os.path.getmtime(path)
+                dt = datetime.fromtimestamp(timestamp)
+                date = dt.strftime('%Y-%m-%d %H:%M:%S')
 
-                pix = QtGui.QPixmap()
-                pix.loadFromData(fp.getvalue())
-                thumb = QtGui.QIcon(pix)
+            sz = 400
+            im.thumbnail((sz, sz))
+            fp = BytesIO()
+            im.save(fp, 'png')
 
-                # Create the values list based on the order of fields
-                def updateValues(values, name, val):
-                    values[self.fields.index(name)] = val
+            pix = QtGui.QPixmap()
+            pix.loadFromData(fp.getvalue())
+            thumb = QtGui.QIcon(pix)
 
-                values = ['' for _ in self.fields]
-                updateValues(values, 'Directory', directory)
-                updateValues(values, 'File Name', fname)
-                updateValues(values, 'Date', date)
-                updateValues(values, 'Hash', str(hsh))
-                updateValues(values, 'FileId', fileId)
-                updateValues(values, 'Tagged', False)
-                updateValues(values, 'Import Date', importTime)
+            # Create the values list based on the order of fields
+            def updateValues(values, name, val):
+                values[self.fields.index(name)] = val
 
-                self.model.insertRows(self.model.rowCount(), 0,
-                                      Photo(self.fields, values, thumb))
+            values = ['' for _ in self.fields]
+            updateValues(values, 'Directory', directory)
+            updateValues(values, 'File Name', fname)
+            updateValues(values, 'Date', date)
+            updateValues(values, 'Hash', str(hsh))
+            updateValues(values, 'Tagged', False)
 
-                msg = 'Importing Photo %d of %d' % (k+1, len(images))
-                self.statusbar.showMessage(msg)
+            self.model.insertRows(Photo(self.fields, values, thumb))
 
-                # Allow the application to stay responsive and show the progress
-                QtGui.QApplication.processEvents()
+            msg = 'Importing Photo %d of %d' % (k+1, len(images))
+            self.statusbar.showMessage(msg)
+
+            # Allow the application to stay responsive and show the progress
+            QtGui.QApplication.processEvents()
 
         self.statusbar.showMessage('Finished Import', 5000)
 
@@ -403,22 +388,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             warning_box(msg, self)
             return
 
-        # Load the database into an Album
-        album, geometry = self.db.load(dbfile)
-        if album in (False, None):
-            if geometry:
-                # There was an error
-                warning_box(geometry, self)
-            return
-
         # Close the exiting database
         self.closeDatabase()
 
-        # Set up the PhotoDatabase instance
-        self.db.setDatabaseFile(dbfile)
-
         # Set the new dataset
-        self.model.changeDataSet(album)
+        self.model.changeDatabase(dbfile)
 
         # Make sure table is visible
         if self.view.isHidden():
@@ -429,6 +403,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             self.labelNoPhotos.setHidden(True)
 
         # Restore the table geometry
+        geometry = self.db.geometry()
         if geometry:
             hh = self.horizontalHeader
             hh.restoreState(QtCore.QByteArray(str(geometry)))
@@ -522,7 +497,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         source = [self.proxy.mapToSource(i) for i in selection]
         selectedRows = list(set([k.row() for k in source]))
 
-        fileIds = [self.album[k, self.album.fileIdField] for k in selectedRows]
+        fileIds = [self.album[k].fileId for k in selectedRows]
         dlg = BatchTag(self.db, self)
         dlg.treeView.checkFileTags(fileIds)
         st = dlg.exec_()
@@ -544,21 +519,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Batch-add the tags
         self.model.batchAddTags(selectedRows, checkedTags, uncheckedTags)
-
-    @QtCore.pyqtSlot(list, list)
-    def on_albumDataChanged(self, fileIds, fieldnames):
-        """ Update the database when user changes data
-
-        Slot for model.dataChanged
-
-        Arguments:
-            fileIds (list): A list of database file ids
-            fieldnames (list): A list of field names
-        """
-        QtGui.qApp.processEvents()
-        self.db.updateAlbum(self.album, fileIds, fieldnames)
-
-        self.proxy.invalidate()
 
     @QtCore.pyqtSlot()
     def on_changeLog(self):
@@ -772,14 +732,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.closeDatabase()
         if os.path.exists(dbfile):
             os.remove(dbfile)
-        create_database(dbfile)
 
-        # Re-set the dataset
-        self.model.changeDataSet(Album())
+        # Create the new database
+        self.model.changeDatabase(dbfile)
 
-        # Store the database and set up window/menus
-        self.db.setDatabaseFile(dbfile)
-        self.db.setFields(self.fields)
+        # Set up window/menus
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
@@ -845,7 +802,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     @property
     def album(self):
-        return self.model.dataset
+        return self.model.dataset.album
 
     @property
     def databaseFile(self):
@@ -869,10 +826,10 @@ if __name__ == "__main__":
     import sys
 
     app = QtGui.QApplication(sys.argv)
-    main = PhotoOrganizer()
+#     main = PhotoOrganizer()
 
-#     print '*** Log Window Not Used ***'
-#     main = PhotoOrganizer(useLogWindow=False)
+    print '*** Log Window Not Used ***'
+    main = PhotoOrganizer(useLogWindow=False)
 
 #     main = PhotoOrganizer('TestDb2.db')
     main.resize(800, 600)

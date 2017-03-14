@@ -1,5 +1,6 @@
 """ Undo commands for Photo Organizer """
 from PyQt4 import QtGui
+from datastore import FieldObject
 from shared import trashDir
 import shutil
 from datetime import datetime
@@ -16,19 +17,13 @@ class newFieldCmd(QtGui.QUndoCommand):
     def __init__(self, main, name, parent=None):
         super(newFieldCmd, self).__init__(parent)
         self.main = main
-        self.name = str(name)
+        self.field = FieldObject(str(name), filt=True, tags=True)
 
     def redo(self):
-        name = self.name
-        self.main.model.insertColumns(name=name)
-        newfield = self.main.fields[-1]
-        newfield.filter = True
-        newfield.tags = True
-        self.main.db.insertField(newfield)
+        self.main.model.insertColumns(field=self.field)
 
     def undo(self):
-        col = self.main.fields.index(self.name)
-        self.main.db.dropField(self.name)
+        col = self.main.fields.index(self.field)
         self.main.model.removeColumns(col)
 
 
@@ -52,7 +47,6 @@ class removeRowCmd(QtGui.QUndoCommand):
     def redo(self):
         # Remove the photo
         self.main.model.removeRows(self.row)
-        self.main.db.deleteFile(self.photo.fileId)
 
         # Select the next row
         newRow = self.row
@@ -67,8 +61,7 @@ class removeRowCmd(QtGui.QUndoCommand):
 
     def undo(self):
         # Re-insert the photo
-        self.main.model.insertRows(self.row, entry=self.photo)
-        self.main.db.insertFile(self.photo)
+        self.main.model.insertRows(self.photo, self.row)
 
         # Select our row
         self.main.view.setCurrentPhoto(self.row)

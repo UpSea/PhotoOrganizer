@@ -168,13 +168,6 @@ class Album(MutableSequence):
         for v in values:
             self._entries.append(Photo(self._fields, v))
 
-        # Set the counter for generic field names, accounting for any existing
-        # fields with generic numbered names
-        c = re.compile('Tag Field (\d+)')
-        matches = map(c.match, [str(k) for k in fields])
-        numbers = [int(k.groups()[0]) for k in matches if k]
-        self._am_counter = max(numbers) + 1 if numbers else 1
-
     def __delitem__(self, key):
         del self._entries[key]
 
@@ -224,7 +217,7 @@ class Album(MutableSequence):
                   'editable': False, 'name_editable': False},
                  {'name': self.hashField, 'required': True, 'editable': False,
                   'name_editable': False, 'hidden': True},
-                 {'name': self.fileIdField, 'required': False,
+                 {'name': self.fileIdField, 'required': True,
                   'editable': False, 'name_editable': False, 'hidden': True},
                  {'name': self.directoryField, 'required': True,
                   'editable': False, 'name_editable': False}]
@@ -232,40 +225,6 @@ class Album(MutableSequence):
             fields.append(FieldObject(**f))
         self._defaultFields = fields
         self._fields = fields
-
-    def insertField(self, index=None, name=None):
-        """ Insert a new field
-
-        Arguments:
-            index (int): (Defaults to end) The index at which to insert the
-                field
-            name (str): The name of the field
-        """
-        new_field = None
-        # Check inputs
-        if isinstance(name, FieldObject):
-            new_field = name
-            name = new_field.name
-        if index is None:
-            index = len(self._fields)
-
-        # Create field name if none given
-        if name is None:
-            name = 'Tag Field {}'.format(self._am_counter)
-            self._am_counter += 1
-
-        # Check for duplicate field
-        if name in self.field_names:
-            raise ValueError('duplicate column name: {}'.format(name))
-
-        # Create the new field object
-        if new_field is None:
-            new_field = FieldObject(name)
-
-        # Insert the new field
-        self._fields.insert(index, new_field)
-        for entry in self._entries:
-            entry[self._fields[index]] = ''
 
     def removeField(self, idx, force=False):
         name = self._fields[idx]

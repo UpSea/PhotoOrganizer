@@ -1,5 +1,6 @@
 from PyQt4 import QtCore, QtGui
 from datetime import datetime, MAXYEAR, MINYEAR
+import os.path
 import re
 
 # Place holder
@@ -9,8 +10,6 @@ model_idx = QtCore.QModelIndex
 
 class AlbumModel(QtCore.QAbstractTableModel):
     """ A model for an Album table view """
-
-    albumDataChanged = QtCore.pyqtSignal(list, list)
 
     def __init__(self, dataset, parent=None):
         """ Initialize Model """
@@ -44,19 +43,19 @@ class AlbumModel(QtCore.QAbstractTableModel):
             return QtCore.QVariant()
 
     def insertColumns(self, position=None, columns=0,
-                      index=QtCore.QModelIndex(), name=None):
+                      index=QtCore.QModelIndex(), field=None):
         """ Model required function for inserting columns
 
         Arguments:
             position (int):
             columns (int):
             index (QModelIndex):
-            name (str, FieldObject):
+            field (str, FieldObject):
         """
         if (position is None) or (position == -1):
             position = self.columnCount()
         self.beginInsertColumns(index, position, position + columns)
-        self.dataset.insertField(position, name)
+        self.dataset.insertField(position, field)
         self.endInsertColumns()
         return True
 
@@ -74,25 +73,16 @@ class AlbumModel(QtCore.QAbstractTableModel):
             return False
         else:
             self.beginRemoveColumns(index, position, position + columns)
-            self.dataset.removeField(position, force)
+            self.dataset.dropField(position, force)
             self.endRemoveColumns()
             return True
 
-    def removeField(self, field, force=False):
-        """  Allows for removing of columns by name """
-        idx = self.dataset.field_names.index(field)
-        result = self.removeColumns(idx, force=force)
-        return result
-
-    def insertRows(self, position=None, rows=0, entry=None, uuid=''):
+    def insertRows(self, entry, position=None, rows=0):
         """ Model required function for inserting rows """
         if position is None:
             position = self.rowCount()
         self.beginInsertRows(QtCore.QModelIndex(), position, position + rows)
-        if entry:
-            self.dataset.insert(position, entry)
-        else:
-            self.dataset.addEntry(uuid=uuid)
+        self.dataset.insertFile(entry, position)
         self.endInsertRows()
         return True
 
@@ -159,11 +149,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
         field = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
         if field and index.isValid():
             field = self.dataset.fields[index.column()]
-            cvalue = self._getSetValue(field, value)
-            photo = self.dataset[row]
-            photo[field] = cvalue
+            self.dataset[row, field] = self._getSetValue(field, value)
             self.dataChanged.emit(index, index)
-            self.albumDataChanged.emit([photo.fileId], [field.name])
             return True
         else:
             return False
@@ -183,6 +170,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
             values (dict): A dictionary with field names as keys and lists of
                 tag strings, or QVariant as values. values can also be a list
                 of dictionaries but the must have the same fields.
+            rvalues (dict): A dictionary with field names as keys and lists of
+                tag strings to be removed
         """
         command = batchAddCmd(self, rows, values, rvalues)
         self.undoStack.push(command)
@@ -242,10 +231,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         bottomRight = self.index(bottom, right)
         self.dataChanged.emit(topLeft, bottomRight)
 
-        # Emit the custom data changed signal
-        fileIds = [self.dataset[k].fileId for k in rows]
-        self.albumDataChanged.emit(fileIds, values[0].keys())
-
         return old
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
@@ -285,15 +270,18 @@ class AlbumModel(QtCore.QAbstractTableModel):
             return QtCore.Qt.ItemFlags(QtCore.Qt.ItemIsSelectable |
                                        QtCore.Qt.ItemIsEnabled)
 
-    def changeDataSet(self, dataset):
-        """ Function that changes models underlying dataset
+    def changeDatabase(self, dbfile):
+        """ Open a new database without creating a new PhotoDatabase instance
 
-        This function is to facilitate changing the dataset for the model
-        to be used in cases such as loading a file.
-
+        Arguments:
+            dbfile (str): Path to database file. If the file doesn't exist,
+                a new database is created.
         """
         self.beginResetModel()
-        self.dataset = dataset
+        if os.path.exists(dbfile):
+            self.dataset.openDatabase(dbfile)
+        else:
+            self.dataset.newDatabase(dbfile)
         self.endResetModel()
 
     def setTagState(self, row, fieldName, tag, state):
@@ -377,17 +365,18 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
                     return False
 
         # Check the tagged field
-        tagged = sourceModel.dataset[sourceRow][self.taggedField]
+        tagged = sourceModel.dataset[sourceRow, self.taggedField]
         if self._hideTagged and tagged:
             return False
 
         # Check the tag list
-        listFilter = self.filterList.getCheckedTagDict(lower=True)
-        for fieldName, tags in listFilter.iteritems():
-            for t in tags:
-                tagStr = sourceModel.dataset[sourceRow, fieldName]
-                if t.lower() not in tagStr.lower():
-                    return False
+        if self.filterList is not None:
+            listFilter = self.filterList.getCheckedTagDict(lower=True)
+            for fieldName, tags in listFilter.iteritems():
+                for t in tags:
+                    tagStr = sourceModel.dataset[sourceRow, fieldName]
+                    if t.lower() not in tagStr.lower():
+                        return False
 
         # Here we want to match each word in the pattern individually. If all
         # sub-patterns match in any "filter" column, we'll accept
@@ -499,7 +488,7 @@ class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
 
     @property
     def taggedField(self):
-        return self.sourceModel().dataset.taggedField
+        return self.dataset.taggedField
 
 
 class batchAddCmd(QtGui.QUndoCommand):

@@ -1,9 +1,12 @@
 """ A module for interacting with the photo database file """
-import sqlite3
-from .. import FieldObjectContainer, FieldObject, Album, Photo
 from PyQt4 import QtGui, QtCore
+from create_database import create_database
+from datastore import FieldObjectContainer, FieldObject, Album, Photo
+from Dialogs import WarningDialog, warning_box
 from io import BytesIO
-from Dialogs import WarningDialog
+import os.path
+import re
+import sqlite3
 from versions import convertCheck, convertVersion
 
 
@@ -14,12 +17,36 @@ class PhotoDatabase(QtCore.QObject):
         dbfile (str): (None) The path to the database file
     """
 
-    newDatabase = QtCore.pyqtSignal()
+    sigNewDatabase = QtCore.pyqtSignal()
     databaseChanged = QtCore.pyqtSignal()
 
     def __init__(self, dbfile=None, parent=None):
         super(PhotoDatabase, self).__init__(parent)
-        self.setDatabaseFile(dbfile)
+        self._dbfile = None
+        if dbfile and os.path.exists(dbfile):
+            # Open an existing database
+            st, album = self.load(dbfile) #Note look into combining album field initialization with ours
+            if not st:
+                if album:
+                    # There was an error
+                    warning_box(album) # Probably move this to the caller
+                self.album = Album()
+            else:
+                self.album = album
+                self.setDatabaseFile(dbfile)
+                self.setFields(album.fields)
+        else:
+            # Create new database
+            self.album = Album()
+            if dbfile:
+                create_database(dbfile)
+                self.setDatabaseFile(dbfile)
+                self.setFields(self.album.fields)
+
+    def closeDatabase(self):
+        """ Close the existing database """
+        self._dbfile = None
+        self.album = Album()
 
     def connect(self, dbfile=None):
         """ Create a database connection """
@@ -30,6 +57,14 @@ class PhotoDatabase(QtCore.QObject):
         con.execute('pragma foreign_keys = 1')
         return con
 
+    def newDatabase(self, dbfile):
+        """ Create new database """
+        # Create new database
+        self.album = Album()
+        create_database(dbfile)
+        self.setDatabaseFile(dbfile)
+        self.setFields(self.album.fields)
+
     def setDatabaseFile(self, dbfile):
         """ Set the database file
 
@@ -38,7 +73,7 @@ class PhotoDatabase(QtCore.QObject):
         """
         self._dbfile = dbfile
         if dbfile:
-            self.newDatabase.emit()
+            self.sigNewDatabase.emit()
 
     ###################
     #  Query Methods  #
@@ -57,16 +92,25 @@ class PhotoDatabase(QtCore.QObject):
             q2 = 'DELETE FROM File WHERE FilId == ?'
             cur.execute(q2, (filId,))
 
-    def dropField(self, name):
+        dex = [k.fileId for k in self.album].index(filId)
+        self.album.pop(dex)
+
+    def dropField(self, idx, force=False):
         """ Drop a category from the database. All tags associated with that
         category will be removed
 
         Arguments:
             name (str): The name of the category to remove
         """
+        # Check if field is required
+        field = self.fields[idx]
+        if field.required and (not force):
+            raise DatabaseError('Cannot remove required field')
+
+        # Remove the referencing tag maps, tags and fields from DB
         with self.connect() as con:
             idq = 'SELECT FieldId from TagFields WHERE Name == ?'
-            CatId = con.execute(idq, (name,)).fetchone()
+            CatId = con.execute(idq, (field.name,)).fetchone()
             if CatId is None:
                 return
             dmq = ('DELETE FROM TagMap WHERE TagId IN '
@@ -75,8 +119,11 @@ class PhotoDatabase(QtCore.QObject):
             dtq = 'DELETE FROM Tags WHERE FieldId == ?'
             con.execute(dtq, CatId)
             dfq = 'DELETE FROM Fields WHERE Name == ?'
-            con.execute(dfq, (name,))
+            con.execute(dfq, (field.name,))
         self.databaseChanged.emit()
+
+        # Remove the field from the album
+        self.album.removeField(idx)
 
     def getTableAsDict(self, table, con=None, onePer=True, dbfile=None):
         """ Get the values of a table as a list of dictionaries
@@ -106,28 +153,66 @@ class PhotoDatabase(QtCore.QObject):
             con.close()
         return out
 
-    def insertField(self, fieldobj):
+    def geometry(self):
+        """ Return the header geometry stored in the database """
+        with self.connect() as con:
+            # Get the geometry
+            q_geo = 'SELECT AlbumTableState from AppData'
+            cur = con.execute(q_geo)
+            return cur.fetchone()[0]
+
+    def insertField(self, index=None, name=None):
         """ Insert a new field. Return the id of the new category
 
         Arguments:
-            fieldobject (FieldObject): The field to add to the database
+            index (int): (None) The index at which to insert the new field.
+                Defaults to the end.
+            name (FieldObject): (None) The field to add to the database.
+                Default is a generic numbered field with default properties.
         """
-        assert(isinstance(fieldobj, FieldObject))
+        # Set up
+        new_field = None
+        # Check inputs
+        if isinstance(name, FieldObject):
+            new_field = name
+            name = new_field.name
+        if index is None:
+            index = len(self.fields)
+
+        # Create field name if none given
+        if name is None:
+            name = 'Tag Field {}'.format(self.nextDefaultField())
+
+        # Check for duplicate field
+        if name in self.field_names:
+            raise ValueError('duplicate column name: {}'.format(name))
+
+        # Create the new field object
+        if new_field is None:
+            new_field = FieldObject(name)
+
+        # Insert the field into the DB
+        assert(isinstance(new_field, FieldObject))
         field_props = FieldObjectContainer.fieldProps
-        props = ', '.join(field_props)
+        props = ', '.join(field_props.keys())
         params = ','.join(['?']*len(field_props))
         i = 'INSERT INTO Fields ({}) VALUES ({})'.format(props, params)
-        values = [fieldobj.name, fieldobj.required, fieldobj.editor,
-                  fieldobj.editable, fieldobj.name_editable, fieldobj.hidden,
-                  fieldobj.filter, fieldobj.tags]
+        values = [getattr(new_field, v) for v in field_props.values()]
+
         with self.connect() as con:
             # Add the field
             newId = con.execute(i, values).lastrowid
-
         self.databaseChanged.emit()
+
+        # Insert the field into the album
+        # This is after the database insertion in the event of an error
+        self.fields.insert(index, new_field)
+        for entry in self.album._entries:
+            entry[self.fields[index]] = ''
+
         return newId
 
-    def insertFile(self, photo):
+    def insertFile(self, photo, idx=None):
         """ Insert a photo into the database from a photo object
 
         Arguments:
@@ -144,6 +229,7 @@ class PhotoDatabase(QtCore.QObject):
             thumb = None
 
         # Get the default columns and values
+        #much like the field properties, need to find something cleaner
         fields = ['tagged', 'filename', 'directory', 'filedate', 'hash',
                   'thumbnail']
         date = photo.datetime or photo.date
@@ -151,18 +237,19 @@ class PhotoDatabase(QtCore.QObject):
                   photo.hash, thumb]
 
         with self.connect() as con:
-            if photo.fileId is None:
+            if photo.fileId in (None, ''):
                 # Let the database fill in the FileID and Import Time
-                iqry = 'INSERT INTO File (filename, directory, filedate, ' + \
-                       'hash, thumbnail) VALUES (?,?,?,?,?)'
+                fieldStr = ','.join(fields)
+                parStr = ','.join(['?']*len(fields))
+                iqry = 'INSERT INTO File ({}) VALUES ({})'.format(fieldStr, parStr)
                 cur = con.execute(iqry, values)
                 filId = cur.lastrowid
 
                 # Set the photo's file id and import time
-                photo[Album.fileIdField] = filId
+                photo[self.fields[Album.fileIdField]] = filId
                 impQry = 'SELECT importTimeUTC FROM File WHERE FilId == ?'
                 cur = cur.execute(impQry, (filId,))
-                photo[Album.importDateField] = cur.fetchone()[0]
+                photo[self.fields[Album.importDateField]] = cur.fetchone()[0]
             else:
                 # The photo already has a file id and import time
                 fields += ['FilId', 'importTimeUTC']
@@ -175,21 +262,27 @@ class PhotoDatabase(QtCore.QObject):
 
             # Add the tag mappings
             pTagFields = [k for k in photo if k.tags]
-            tfq = 'SELECT FieldId from Fields WHERE Name == ?'
-            tq = 'SELECT TagId FROM Tags WHERE FieldId == ? AND Value == ?'
-            tmq = 'INSERT INTO TagMap (FilId, TagId) VALUES (?,?)'
-            tmps = []
-            for field in pTagFields:
-                # Get the field id
-                fieldId = con.execute(tfq, (field.name,)).fetchone()[0]
+            if pTagFields:
+                tfq = 'SELECT FieldId from Fields WHERE Name == ?'
+                tq = 'SELECT TagId FROM Tags WHERE FieldId == ? AND Value == ?'
+                tmq = 'INSERT INTO TagMap (FilId, TagId) VALUES (?,?)'
+                tmps = []
+                for field in pTagFields:
+                    # Get the field id
+                    fieldId = con.execute(tfq, (field.name,)).fetchone()[0]
 
-                tags = photo.tags(field)
-                for tag in tags:
-                    # Get the tag id
-                    tagId = con.execute(tq, (fieldId, tag)).fetchone()[0]
-                    # INSERT the tag map
-                    tmps.append((photo.fileId, tagId))
-            con.executemany(tmq, tmps)
+                    tags = photo.tags(field)
+                    for tag in tags:
+                        # Get the tag id
+                        tagId = con.execute(tq, (fieldId, tag)).fetchone()[0]
+                        # INSERT the tag map
+                        tmps.append((photo.fileId, tagId))
+                con.executemany(tmq, tmps)
+
+        # Put this here in case queries fail
+        if idx is None:
+            idx = len(self.album)
+        self.album.insert(idx, photo)
 
     def insertTags(self, fieldIds, tagValues=None):
         """ Insert a new tag. Return the id of the new tag. Return a list of
@@ -325,11 +418,28 @@ class PhotoDatabase(QtCore.QObject):
 
                 album.append(Photo(fields, values, thumb))
 
-            # Get the geometry
-            q_geo = 'SELECT AlbumTableState from AppData'
-            cur.execute(q_geo)
-            geometry = cur.fetchone()[0]
-        return album, geometry
+        return True, album
+
+    def nextDefaultField(self):
+        """ Return the next numbered default field name """
+        # Account for any existing fields with generic numbered names
+        c = re.compile('Tag Field (\d+)')
+        matches = map(c.match, [str(k) for k in self.fields])
+        numbers = [int(k.groups()[0]) for k in matches if k]
+        return max(numbers) + 1 if numbers else 1
+
+    def openDatabase(self, dbfile):
+        """ Open a new database """
+        st, album = self.load(dbfile)
+        if not st:
+            warning_box('DB failed to open:\n%s' % album)
+        self.album = album
+        self._dbfile = dbfile
+        self.sigNewDatabase.emit()
+
+    def pop(self, idx):
+        filId = self.album[idx].fileId
+        self.deleteFile(filId)
 
     def setFields(self, fields):
         """ Set the fields table to the given FieldContainerObjects
@@ -340,8 +450,8 @@ class PhotoDatabase(QtCore.QObject):
         Arguments:
             fields (FieldObjectContainer)
         """
-        field_props = fields.fieldProps
-        props = ', '.join(field_props)
+        field_props = FieldObjectContainer.fieldProps
+        props = ', '.join(field_props.keys())
         params = ','.join(['?']*len(field_props))
         i = 'INSERT INTO Fields ({}) VALUES ({})'.format(props, params)
         with self.connect() as con:
@@ -352,8 +462,7 @@ class PhotoDatabase(QtCore.QObject):
             icommands = []
             ucommands = []
             for f in fields:
-                values = [f.name, f.required, f.editor, f.editable,
-                          f.name_editable, f.hidden, f.filter, f.tags]
+                values = [getattr(f, v) for v in field_props.values()]
                 if f.name in dbfields:
                     ucommands.append(values+[f.name])
                 else:
@@ -398,18 +507,18 @@ class PhotoDatabase(QtCore.QObject):
         with self.connect() as con:
             con.execute(q, kwargs.values())
 
-    def updateAlbum(self, album, fileIds, fieldnames):
+    def updateAlbum(self, fileIds, fieldnames):
         """ Update the database when user changes data
 
         Generally Called by the slot for the model's albumChanged signal.
         Arguments are what they are because of what that signal contains
 
         Arguments:
-            album (Album): The album to which the database should be updated
             fileIds (list): A list of database file ids
             fieldnames (list): A list of field names
         """
         # Setup variables
+        album = self.album
         allFiles = [k.fileId for k in album]
 
         # Set up batch queries
@@ -427,7 +536,7 @@ class PhotoDatabase(QtCore.QObject):
 
         # Current fields and tags
         with self.connect() as con:
-            # Get the tag fields by ID and Column
+            # Get the tag fields to update as dict by Name and ID
             fieldstr = ','.join([str('\''+k+'\'') for k in fieldnames])
             catQ = 'SELECT Name, FieldId from TagFields WHERE Name in (%s)' % fieldstr
 
@@ -435,23 +544,24 @@ class PhotoDatabase(QtCore.QObject):
             allCatDict = dict(res)
             catIds = allCatDict.values()
 
-            # Get all tags for each category
+            # Get all tags for each FileId and category to update
             catstr = ','.join([str(k) for k in catIds])
             tagQ = 'SELECT FieldId, TagId, Value FROM Tags WHERE FieldId IN (%s)' % catstr
             alltags_before = con.execute(tagQ).fetchall()
 
-        # Loop over each index in the range and prepare for database calls
+        # Loop over each file and field and prepare for parameters for db query
         for fileId in fileIds:
             for field in fieldnames:
-                # Get the index of the current cell
+                # Get the current Photo object
                 row = allFiles.index(fileId)
                 photo = album[row]
+                # Tag or checkbox?
                 if field == album.taggedField:
                     # Handle the "tagged" checkboxes
                     taggedUpdate['vals'].append(1 if photo[field] else 0)
                     taggedUpdate['ids'].append(fileId)
                 else:
-                    # Handle the tag cagetories
+                    # Handle the tag categories
                     # Skip any field that isn't a tag category
                     if field not in allCatDict:
                         # Not a "category" field
@@ -462,6 +572,8 @@ class PhotoDatabase(QtCore.QObject):
                     cur_tags = photo.tags(field)
                     existing = {k[2].lower(): k[1] for k in alltags_before
                                 if k[0] == catId}
+                    # For each tag determine if it exists altogether and insert
+                    # the tag-to-file mapping
                     for tag in cur_tags:
                         if tag.strip() == '':
                             continue
@@ -470,6 +582,8 @@ class PhotoDatabase(QtCore.QObject):
                                 cat_tag not in tags2insert):
                             # INSERT new tag
                             tags2insert.append(cat_tag)
+                        # Store the mapping. We don't care if the mapping
+                        # exists, the query will ignore duplicates.
                         mapParams1.append((fileId, (catId, tag.lower())))
 
                     # Set up to remove deleted tags in this category and file
@@ -481,8 +595,9 @@ class PhotoDatabase(QtCore.QObject):
         # Update the tagged status and insert the new tags
         self.updateTagged(taggedUpdate['ids'], taggedUpdate['vals'])
         self.insertTags(tags2insert)
+        # Map the tags to files and delete removed mappings
         with self.connect() as con:
-            # Get the TagIds
+            # Get the TagIds for the tag mappings
             alltags_added = con.execute(tagQ).fetchall()
             tagIds = {(k[0], k[2].lower()): k[1] for k in alltags_added}
             mapParams = [(k[0], tagIds[k[1]]) for k in mapParams1]
@@ -511,6 +626,46 @@ class PhotoDatabase(QtCore.QObject):
         with self.connect() as con:
             return con.executemany(q, zip(tagged, FileIds)).rowcount
 
+    #################
+    # Album Methods #
+    #################
+
+    def __getitem__(self, key):
+        return self.album[key]
+
+    def __setitem__(self, key, value):
+        entry, fdex = key
+        # Set photo data
+        self.album[entry, fdex] = value
+        # Update database
+        self.updateAlbum([self.album[entry].fileId], [self.fields[fdex].name])
+
+    ################
+    #  Properties  #
+    ################
+
+    def __len__(self):
+        return len(self.album._entries)
+
     @property
     def dbfile(self):
         return self._dbfile
+
+    def index(self, key):
+        return self.album.index(key)
+
+    @property
+    def fields(self):
+        return self.album.fields
+
+    @property
+    def field_names(self):
+        return self.album.field_names
+
+    @property
+    def taggedField(self):
+        return self.album.taggedField
+
+
+class DatabaseError(BaseException):
+    pass

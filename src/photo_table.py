@@ -187,8 +187,15 @@ class PhotoTable(QtGui.QTableView):
 
 
 if __name__ == "__main__":
+    from datastore import PhotoDatabase, AlbumModel
+    dbfile = r"C:\Users\Luke\Files\Python\workspace\PicOrganizer\Fresh5.pdb"
     app = QtGui.QApplication([])
     view = PhotoTable()
+    db = PhotoDatabase()
+    album = db.load(dbfile)[1]
+    db.setDatabaseFile(dbfile)
+    model = AlbumModel(album)
+    view.setModel(model)
 
     view.show()
     app.exec_()

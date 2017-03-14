@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     dbfile = '..\Fresh.pdb'
     db = PhotoDatabase(dbfile)
-    album = db.load(dbfile)[0]
+    album = db.load(dbfile)[1]
 
     viewer = ImageViewer()
     viewer.treeView.setDb(db)
