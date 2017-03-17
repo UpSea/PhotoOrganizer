@@ -267,8 +267,11 @@ class TagTreeView(QtGui.QTreeView):
             name (str): The name of the new tag
         """
         ids = self.db.insertTags([fieldId], [str(name)])
-        self.updateTree()
-        item = self.sourceModel.itemById(ids[0], fieldId)
+        if ids:
+            self.updateTree()
+            item = self.sourceModel.itemById(ids[0], fieldId)
+        else:
+            item = self.sourceModel.itemByText(str(name), fieldId)
         item.setCheckState(QtCore.Qt.Checked)
 
     @property
@@ -311,6 +314,18 @@ class TagItemModel(QtGui.QStandardItemModel):
         parent = self.catItemById(fieldId)
         itemIds = [parent.child(k).id for k in range(parent.rowCount())]
         return parent.child(itemIds.index(Id))
+
+    def itemByText(self, tagName, fieldId):
+        """ Return the item with the given name in the given field
+
+        Arguments:
+            tagName (str): The name of the tag
+            fielId (int): The id of the field that contains the tag
+        """
+        parent = self.catItemById(fieldId)
+        itemText = [str(parent.child(k).text()).lower()
+                    for k in range(parent.rowCount())]
+        return parent.child(itemText.index(tagName.lower()))
 
     def getCheckedItems(self):
         """ Return the checked QStandardItems """
@@ -436,10 +451,10 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
 
 if __name__ == "__main__":
 #     dbfile = 'v0.3.pdb'
-    dbfile = '..\\Fresh.pdb'
+    dbfile = '..\\Fresh5b.pdb'
+    app = QtGui.QApplication([])
     db = PhotoDatabase(dbfile)
 
-    app = QtGui.QApplication([])
     tree = TagTreeView(mode=TagTreeView.TagMode)
 #     tree = TagTreeView(mode=TagTreeView.FilterMode)
     proxy = tree.model()
