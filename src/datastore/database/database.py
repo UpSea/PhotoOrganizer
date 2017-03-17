@@ -161,6 +161,19 @@ class PhotoDatabase(QtCore.QObject):
             cur = con.execute(q_geo)
             return cur.fetchone()[0]
 
+    def icon2Blob(self, icon):
+        """ Convert the thumbnail Icon to an Sqlite3 blob for insertion into DB
+
+        Arguments:
+            icon (QIcon)
+        """
+        if icon:
+            pixmap = icon.pixmap(icon.availableSizes()[0])
+            buff = QtCore.QBuffer()
+            buff.open(QtCore.QIODevice.ReadWrite)
+            pixmap.save(buff, 'png')
+            return sqlite3.Binary(buff.data())
+
     def insertField(self, index=None, name=None):
         """ Insert a new field. Return the id of the new category
 
@@ -219,14 +232,7 @@ class PhotoDatabase(QtCore.QObject):
             photo (Photo): The photo object to be inserted
         """
         # Create the thumbnail blob
-        if photo.thumb:
-            pix = photo.thumb.pixmap(photo.thumb.availableSizes()[0])
-            buff = QtCore.QBuffer()
-            buff.open(QtCore.QIODevice.ReadWrite)
-            pix.save(buff, 'png')
-            thumb = sqlite3.Binary(buff.data())
-        else:
-            thumb = None
+        thumb = self.icon2Blob(photo.thumb)
 
         # Get the default columns and values
         #much like the field properties, need to find something cleaner
@@ -493,6 +499,18 @@ class PhotoDatabase(QtCore.QObject):
         with self.connect() as con:
             res = con.execute(q, (fileId,))
             return [k[0] for k in res]
+
+    def setThumb(self, fileId, thumb):
+        """ Set the thumbnail blob in the database
+
+        Arguments:
+            fileId (int): The file id to set the thumbnail
+            thumb (QIcon): The thumbnail saved in the Photo object
+        """
+        blob = self.icon2Blob(thumb)
+        q = 'UPDATE File SET thumbnail = ? WHERE FilId == ?'
+        with self.connect() as con:
+            con.execute(q, (blob, fileId))
 
     def updateAppData(self, **kwargs):
         """ Save database-specific settings

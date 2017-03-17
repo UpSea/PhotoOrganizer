@@ -156,6 +156,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
             elif (role == QtCore.Qt.DecorationRole and
                   field.name == self.dataset.album.thumbField):
                 self.dataset[row].thumb = value
+                self.dataset.setThumb(self.dataset[row].fileId, value)
             self.dataChanged.emit(index, index)
         else:
             return False
