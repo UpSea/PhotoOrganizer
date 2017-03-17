@@ -692,8 +692,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         box.setText(mess_str)
         box.exec_()
 
-    @QtCore.pyqtSlot(str)
-    def on_editFilterTextChanged(self, pattern):
+    @QtCore.pyqtSlot()
+    def on_editFilterTextChanged(self):
         """Set the filter
 
         Slot for the line edit
@@ -702,6 +702,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             pattern (str): The pattern for the regular expression
         """
         QtGui.qApp.processEvents()
+        pattern = self.editFilter.text()
+        if pattern == self.proxy.filterRegExp().pattern():
+            return
         search = QtCore.QRegExp(pattern,
                                 QtCore.Qt.CaseInsensitive,
                                 QtCore.QRegExp.RegExp)
