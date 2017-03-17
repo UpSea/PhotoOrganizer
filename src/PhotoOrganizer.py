@@ -252,7 +252,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                           QtCore.QVariant(self.actionToolbar.isChecked()))
 
         # Close the current album
-        self.closeDatabase()
+        self.model.changeDatabase(None)
 
         # Reset the stdout and stderr
         self.logWindow.resetOutput()

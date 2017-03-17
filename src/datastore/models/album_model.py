@@ -283,7 +283,9 @@ class AlbumModel(QtCore.QAbstractTableModel):
                 a new database is created.
         """
         self.beginResetModel()
-        if os.path.exists(dbfile):
+        if dbfile is None:
+            self.dataset.closeDatabase()
+        elif os.path.exists(dbfile):
             self.dataset.openDatabase(dbfile)
         else:
             self.dataset.newDatabase(dbfile)
