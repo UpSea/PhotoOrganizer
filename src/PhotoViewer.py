@@ -3,13 +3,11 @@ from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_ImageViewer
 from datastore import Album
 from shared import resource_path
-from undo import imageRotateCmd
+import undo
 
 
 class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
     """ An image viewer """
-
-    sigDelete = QtCore.pyqtSignal(object)
 
     def __init__(self, imagefile=None, albumModel=None, main=None, parent=None):
         super(ImageViewer, self).__init__(parent)
@@ -17,7 +15,6 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.main = main
         self.albumModel = albumModel
         self.treeView.header().setVisible(True)
-        self.undoStack = QtGui.QUndoStack()
 
         # Ignore size hint and give the image as much space as possible
         self.imageLabel.setSizePolicy(QtGui.QSizePolicy.Ignored,
@@ -38,16 +35,44 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.actionNext = QtGui.QAction(nextIcon, 'Next', self)
         self.actionNext.triggered.connect(self.on_next)
         self.toolBar.addAction(self.actionNext)
-        delIcon = QtGui.QIcon(resource_path(r'icons\delete.ico'))
-        self.actionDelete = QtGui.QAction(delIcon, 'Delete', self)
-        self.actionDelete.triggered.connect(self.on_delete)
-        self.toolBar.addAction(self.actionDelete)
+
+        # Set up undo
+        self.toolBar.addSeparator()
+        undoStack = getattr(main, 'undoStack', None)
+        if undoStack is None:
+            self.undoStack = QtGui.QUndoStack()
+
+            self.actionUndo = self.undoStack.createUndoAction(self.toolBar, 'Undo')
+            undoIcon = QtGui.QIcon(resource_path(r'icons\undo.png'))
+            self.actionUndo.setIcon(undoIcon)
+            self.actionUndo.setShortcut('Ctrl+Z')
+
+            self.actionRedo = self.undoStack.createRedoAction(self.toolBar, 'Redo')
+            redoIcon = QtGui.QIcon(resource_path(r'icons\redo.png'))
+            self.actionRedo.setIcon(redoIcon)
+            self.actionRedo.setShortcut('Ctrl+Y')
+        else:
+            self.undoStack = main.undoStack
+            self.actionUndo = main.actionUndo
+            self.actionRedo = main.actionRedo
+        self.toolBar.addAction(self.actionUndo)
+        self.toolBar.addAction(self.actionRedo)
+
+        # Rotate buttons
+        self.toolBar.addSeparator()
         self.actionRotLeft = QtGui.QAction('Left', self)
         self.toolBar.addAction(self.actionRotLeft)
         self.actionRotLeft.triggered.connect(self.on_rotLeft)
         self.actionRotRight = QtGui.QAction('Right', self)
         self.toolBar.addAction(self.actionRotRight)
         self.actionRotRight.triggered.connect(self.on_rotRight)
+
+        # Delete button
+        self.toolBar.addSeparator()
+        delIcon = QtGui.QIcon(resource_path(r'icons\delete.ico'))
+        self.actionDelete = QtGui.QAction(delIcon, 'Delete', self)
+        self.actionDelete.triggered.connect(self.on_delete)
+        self.toolBar.addAction(self.actionDelete)
 
         # Set the first image
         self.imageList = []
@@ -122,11 +147,6 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         super(ImageViewer, self).resizeEvent(event)
         self.fitImage()
 
-    def setUndoStack(self, stack):
-        """ Set the undo stack for the imageViewer """
-        self.undoStack = stack
-        # Set up the toolbar buttons here
-
     @QtCore.pyqtSlot()
     def on_back(self):
         """ Switch to the previous photo """
@@ -139,17 +159,8 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
     @QtCore.pyqtSlot()
     def on_delete(self):
         """ Delete the current photo """
-        self.sigDelete.emit(self.imageList[self.imageShowing])
-
-        # Update the image showing
-        index = self.imageShowing
-        self.imageList.pop(index)
-        if len(self.imageList) == 0:
-            self.close()
-            return
-        if index >= len(self.imageList):
-            index = len(self.imageList) - 1
-        self.setImage(index)
+        cmd = undo.removeRowCmd(self, self.imageList[self.imageShowing])
+        self.undoStack.push(cmd)
 
     @QtCore.pyqtSlot(QtCore.QModelIndex)
     def on_filterChanged(self, index):
@@ -179,13 +190,13 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
     @QtCore.pyqtSlot()
     def on_rotLeft(self):
         """ Rotate the image 90deg to the left """
-        cmd = imageRotateCmd(self, self.imageList[self.imageShowing], 90)
+        cmd = undo.imageRotateCmd(self, self.imageList[self.imageShowing], 90)
         self.undoStack.push(cmd)
 
     @QtCore.pyqtSlot()
     def on_rotRight(self):
         """ Rotate the image 90deg to the right """
-        cmd = imageRotateCmd(self, self.imageList[self.imageShowing], -90)
+        cmd = undo.imageRotateCmd(self, self.imageList[self.imageShowing], -90)
         self.undoStack.push(cmd)
 
 
@@ -193,7 +204,7 @@ if __name__ == "__main__":
     from datastore import PhotoDatabase
     app = QtGui.QApplication([])
 
-    dbfile = '..\Fresh.pdb'
+    dbfile = '..\Fresh5a.pdb'
     db = PhotoDatabase(dbfile)
     album = db.load(dbfile)[1]
 

@@ -140,7 +140,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Create the image viewer window
         self.imageViewer = ImageViewer(albumModel=self.model, main=self)
-        self.imageViewer.setUndoStack(self.undoStack)
         self.imageViewer.setWindowIcon(poIcon)
         self.imageViewer.treeView.setMode(self.treeView.TagMode)
         self.imageViewer.treeView.setDb(self.db)
@@ -172,7 +171,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.db.sigNewDatabase.connect(self.imageViewer.treeView.newConnection)
         self.db.databaseChanged.connect(self.treeView.updateTree)
         self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
-        self.imageViewer.sigDelete.connect(self.on_viewerDelete)
         self.actionCopyPhotos.triggered.connect(self.on_copyPhotos)
 #         self.actionCopyPhotos.triggered.connect(self.on_movePhotos)
 
