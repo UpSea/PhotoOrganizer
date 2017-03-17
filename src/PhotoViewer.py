@@ -1,8 +1,9 @@
 #http://doc.qt.io/qt-5/qtwidgets-widgets-imageviewer-example.html
 from PyQt4 import QtCore, QtGui
-from datastore import Album
 from UIFiles import Ui_ImageViewer
+from datastore import Album
 from shared import resource_path
+from undo import imageRotateCmd
 
 
 class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
@@ -10,11 +11,13 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
 
     sigDelete = QtCore.pyqtSignal(object)
 
-    def __init__(self, imagefile=None, albumModel=None, parent=None):
+    def __init__(self, imagefile=None, albumModel=None, main=None, parent=None):
         super(ImageViewer, self).__init__(parent)
         self.setupUi(self)
+        self.main = main
         self.albumModel = albumModel
         self.treeView.header().setVisible(True)
+        self.undoStack = QtGui.QUndoStack()
 
         # Ignore size hint and give the image as much space as possible
         self.imageLabel.setSizePolicy(QtGui.QSizePolicy.Ignored,
@@ -39,6 +42,12 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         self.actionDelete = QtGui.QAction(delIcon, 'Delete', self)
         self.actionDelete.triggered.connect(self.on_delete)
         self.toolBar.addAction(self.actionDelete)
+        self.actionRotLeft = QtGui.QAction('Left', self)
+        self.toolBar.addAction(self.actionRotLeft)
+        self.actionRotLeft.triggered.connect(self.on_rotLeft)
+        self.actionRotRight = QtGui.QAction('Right', self)
+        self.toolBar.addAction(self.actionRotRight)
+        self.actionRotRight.triggered.connect(self.on_rotRight)
 
         # Set the first image
         self.imageList = []
@@ -66,11 +75,14 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         elif isinstance(photo, int):
             self.imageShowing = photo
             photo = self.imageList[photo]
-        else:
-            self.imageList = []
-            self.imageShowing = None
-            self.actionBack.setEnabled(False)
-            self.actionNext.setEnabled(False)
+        else:  # Photo
+            if photo in self.imageList:
+                self.imageShowing = self.imageList.index(photo)
+            else:
+                self.imageList = []
+                self.imageShowing = None
+                self.actionBack.setEnabled(False)
+                self.actionNext.setEnabled(False)
 
         if self.imageList:
             self.actionBack.setEnabled(True)
@@ -109,6 +121,11 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         """ Re-implemented to resize the image """
         super(ImageViewer, self).resizeEvent(event)
         self.fitImage()
+
+    def setUndoStack(self, stack):
+        """ Set the undo stack for the imageViewer """
+        self.undoStack = stack
+        # Set up the toolbar buttons here
 
     @QtCore.pyqtSlot()
     def on_back(self):
@@ -158,6 +175,18 @@ class ImageViewer(QtGui.QMainWindow, Ui_ImageViewer):
         else:
             index = self.imageShowing + 1
         self.setImage(index)
+
+    @QtCore.pyqtSlot()
+    def on_rotLeft(self):
+        """ Rotate the image 90deg to the left """
+        cmd = imageRotateCmd(self, self.imageList[self.imageShowing], 90)
+        self.undoStack.push(cmd)
+
+    @QtCore.pyqtSlot()
+    def on_rotRight(self):
+        """ Rotate the image 90deg to the right """
+        cmd = imageRotateCmd(self, self.imageList[self.imageShowing], -90)
+        self.undoStack.push(cmd)
 
 
 if __name__ == "__main__":

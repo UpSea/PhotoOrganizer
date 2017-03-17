@@ -146,12 +146,17 @@ class AlbumModel(QtCore.QAbstractTableModel):
         Same arguments as the public method
         """
         row = index.row()
-        field = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
-        if field and index.isValid():
+        fieldname = self.headerData(index.column(), QtCore.Qt.Horizontal, 0)
+        if fieldname and index.isValid():
             field = self.dataset.fields[index.column()]
-            self.dataset[row, field] = self._getSetValue(field, value)
+            if role == QtCore.Qt.EditRole:
+                self.dataset[row, field] = self._getSetValue(field, value)
+                self.dataChanged.emit(index, index)
+                return True
+            elif (role == QtCore.Qt.DecorationRole and
+                  field.name == self.dataset.album.thumbField):
+                self.dataset[row].thumb = value
             self.dataChanged.emit(index, index)
-            return True
         else:
             return False
 

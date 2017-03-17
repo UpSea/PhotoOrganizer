@@ -18,7 +18,7 @@ from Dialogs import WarningDialog, warning_box, UndoDialog
 from genericdialogs import skipFileDialog, ProgressDialog
 from glob import glob
 import imagehash
-from io import BytesIO
+from ImageMan import getThumbnailIcon
 from Log import LogWindow
 from moveCopy import Mover
 import os
@@ -139,7 +139,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.proxy.setFilterList(self.treeView)
 
         # Create the image viewer window
-        self.imageViewer = ImageViewer(albumModel=self.model)
+        self.imageViewer = ImageViewer(albumModel=self.model, main=self)
+        self.imageViewer.setUndoStack(self.undoStack)
         self.imageViewer.setWindowIcon(poIcon)
         self.imageViewer.treeView.setMode(self.treeView.TagMode)
         self.imageViewer.treeView.setDb(self.db)
@@ -271,6 +272,8 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Save database-specific settings
         self.saveAppData()
         self.db.closeDatabase()
+        self.treeView.con.close() #Need to figure out a way to have this in PhotoDatabase
+        self.imageViewer.treeView.con.close()
 
     def saveAppData(self):
         """ Save database-specific settings """
@@ -333,14 +336,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 dt = datetime.fromtimestamp(timestamp)
                 date = dt.strftime('%Y-%m-%d %H:%M:%S')
 
-            sz = 400
-            im.thumbnail((sz, sz))
-            fp = BytesIO()
-            im.save(fp, 'png')
-
-            pix = QtGui.QPixmap()
-            pix.loadFromData(fp.getvalue())
-            thumb = QtGui.QIcon(pix)
+            thumb = getThumbnailIcon(path)
 
             # Create the values list based on the order of fields
             def updateValues(values, name, val):
