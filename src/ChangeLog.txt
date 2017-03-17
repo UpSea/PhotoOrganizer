@@ -1,3 +1,21 @@
+v0.5.1
+Updates:
+- Photos can be rotated using Image Viewer
+- Image Viewer now has Undo Buttons (tied to main application undo)
+
+Bug Fixes:
+- If Group Tag is used to remove tags only from any field, it will fail to do
+    so.
+- In filter tree in tag mode, if new tag is entered manually that matches an
+    existing, exception is thrown and tag isn't checked.
+- When typing quickly in free text filter, signals can get out of order and the
+    pattern used is not the full string.
+- Exceptions raised when closing and tagged photos are hidden. (Model is trying
+    to access fields that aren't there because database was closed without
+    notifying model).
+
+
+
 v0.5.0
 Updates:
 - Updated database will require conversion
