@@ -11,8 +11,8 @@ http://pythoncentral.io/pyside-pyqt-tutorial-the-qlistwidget/
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_PicOrganizer as uiclassf
 from BatchDialog import BatchTag
-from datastore import (AlbumModel, Album, Photo, AlbumDelegate,
-                       AlbumSortFilterModel, PhotoDatabase, create_database)
+from datastore import (AlbumModel, Photo, AlbumDelegate,
+                       AlbumSortFilterModel, PhotoDatabase)
 from datetime import datetime
 from Dialogs import WarningDialog, warning_box, UndoDialog
 from genericdialogs import skipFileDialog, ProgressDialog
@@ -252,7 +252,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                           QtCore.QVariant(self.actionToolbar.isChecked()))
 
         # Close the current album
-        self.model.changeDatabase(None)
+        self.closeDatabase()
 
         # Reset the stdout and stderr
         self.logWindow.resetOutput()
@@ -269,14 +269,18 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Save database-specific settings
         self.saveAppData()
-        self.db.closeDatabase()
+        # Close database connections
         self.treeView.con.close() #Need to figure out a way to have this in PhotoDatabase
         self.imageViewer.treeView.con.close()
+
+        # Close the current album and database
+        self.model.changeDatabase(None)
 
     def saveAppData(self):
         """ Save database-specific settings """
         headerState = sqlite3.Binary(self.horizontalHeader.saveState())
         kwargs = {'AppFileVersion': __release__,
+                  'BuildDate': BUILD_TIME,
                   'AlbumTableState': headerState}
         self.db.updateAppData(**kwargs)
 
@@ -451,7 +455,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         """ Set the date edits for a range """
         def timestamp(x):
             try:
-                dt = datetime.strptime(x['Date'], '%Y-%m-%d %H:%M:%S')
                 return x.datetime.toordinal()
             except (ValueError, TypeError):
                 return
@@ -732,6 +735,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Create the new database
         self.model.changeDatabase(dbfile)
+        self.saveAppData()
 
         # Set up window/menus
         self.labelNoDatabase.setHidden(True)
@@ -828,7 +832,6 @@ if __name__ == "__main__":
 #     print '*** Log Window Not Used ***'
 #     main = PhotoOrganizer(useLogWindow=False)
 
-#     main = PhotoOrganizer('TestDb2.db')
     main.resize(800, 600)
     main.show()
 
