@@ -148,6 +148,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.editFilter.textChanged.connect(self.on_editFilterTextChanged)
         self.view.doubleClicked.connect(self.on_doubleClick)
         self.actionImportFolder.triggered.connect(self.on_importFolder)
+        self.actionImportFiles.triggered.connect(self.on_importFiles)
         self.actionNewDatabase.triggered.connect(self.on_newDatabase)
         self.actionOpenDatabase.triggered.connect(self.on_openDatabase)
         self.view.actionBatchTag.triggered.connect(self.on_actionBatchTag)
@@ -288,12 +289,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
     #   Album Operations   #
     ########################
 
-    def importFolder(self, directory, dbfile):
+    def importFolder(self, directory):
         """Populate the table with images from directory
 
         Arguments:
         directory (str): The directory containing the desired image files
-        dbfile (str):    The path to the database file to be populated
         """
         # Get the list of images with valid extensions
         images = []
@@ -301,6 +301,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             pattern = os.path.join(directory, '*.%s' % str(extension))
             images.extend(glob(pattern))
 
+        self.importFiles(images)
+
+    def importFiles(self, images):
+        """ Populate the table with images from files
+
+        Arguments:
+            images ([str]): A list of full paths to image files
+        """
         exHash = [(k['File Name'], k['Hash']) for k in self.album]
         exFiles = [os.path.join(k['Directory'], k['File Name'])
                    for k in self.album]
@@ -313,11 +321,14 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 continue
 
             # Split off the filename
-            fname = os.path.split(path)[1]
+            directory, fname = os.path.split(path)
 
             # Read the scaled image into a byte array
             im = Image.open(path)
-            exif = im._getexif()
+            try:
+                exif = im._getexif()
+            except Exception:
+                exif = None
             hsh = imagehash.average_hash(im)
             if (fname, str(hsh)) in exHash:
                 changeDir.append(path)
@@ -412,6 +423,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.statusbar.showMessage('Finished Loading', 4000)
         self.setWidthHeight()
         self.actionImportFolder.setEnabled(True)
+        self.actionImportFiles.setEnabled(True)
         self.setDateRange()
         self.saveAppData()
         self.setWidgetVisibility()
@@ -656,6 +668,26 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         QtGui.QMessageBox.about(self, "About Photo Organizer", mess_format)
 
     @QtCore.pyqtSlot()
+    def on_importFiles(self):
+        """ Import photos from selected files
+
+        Slot for actionImportFiles
+        """
+
+        formats = ["*.{0}".format(unicode(fileExt).lower()) for fileExt in QtGui.QImageReader.supportedImageFormats()]
+
+        gofn = QtGui.QFileDialog.getOpenFileNames
+        files = gofn(self, 'Import Files', self.options['importFolder'],
+                     "Image files ({})".format(" ".join(formats)))
+        if files:
+            self.options['importFolder'] = os.path.split(str(files[0]))[0]
+            if self.view.isHidden():
+                self.view.setHidden(False)
+                self.treeView.setHidden(False)
+                self.labelNoPhotos.setHidden(True)
+            self.importFiles(map(str, files))
+
+    @QtCore.pyqtSlot()
     def on_importFolder(self):
         """ Import photos from a folder
 
@@ -669,7 +701,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
                 self.view.setHidden(False)
                 self.treeView.setHidden(False)
                 self.labelNoPhotos.setHidden(True)
-            self.importFolder(str(folder), self.databaseFile)
+            self.importFolder(str(folder))
 
     @QtCore.pyqtSlot()
     def on_keyboardShortcuts(self):
@@ -744,6 +776,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.labelNoDatabase.setHidden(True)
         self.mainWidget.setHidden(False)
         self.actionImportFolder.setEnabled(True)
+        self.actionImportFiles.setEnabled(True)
         self.view.rehideColumns()
         self.updateWindowTitle()
 
@@ -830,10 +863,10 @@ if __name__ == "__main__":
     import sys
 
     app = QtGui.QApplication(sys.argv)
-    main = PhotoOrganizer()
+#     main = PhotoOrganizer()
 
-#     print '*** Log Window Not Used ***'
-#     main = PhotoOrganizer(useLogWindow=False)
+    print '*** Log Window Not Used ***'
+    main = PhotoOrganizer(useLogWindow=False)
 
     main.resize(800, 600)
     main.show()

@@ -148,7 +148,7 @@
        <item>
         <widget class="QLabel" name="labelNoPhotos">
          <property name="text">
-          <string>Go to File &gt; Import Folder to import Photos from a folder into the database.
+          <string>Go to File &gt; Import Folder or File &gt; Import Files to import photos into the database.
 This may take a while if there are many photos. Watch the status bar below for progress.</string>
          </property>
          <property name="alignment">
@@ -165,7 +165,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     <item>
      <widget class="QLabel" name="labelNoDatabase">
       <property name="text">
-       <string>Go to File &gt; New Database to start.</string>
+       <string>Go to File &gt; New Database  or File &gt; Open Database to start.</string>
       </property>
       <property name="alignment">
        <set>Qt::AlignCenter</set>
@@ -190,6 +190,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     <addaction name="actionNewDatabase"/>
     <addaction name="actionOpenDatabase"/>
     <addaction name="actionImportFolder"/>
+    <addaction name="actionImportFiles"/>
     <addaction name="separator"/>
     <addaction name="actionExit"/>
    </widget>
@@ -328,6 +329,14 @@ This may take a while if there are many photos. Watch the status bar below for p
   <action name="actionLog">
    <property name="text">
     <string>Log Window</string>
+   </property>
+  </action>
+  <action name="actionImportFiles">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Import Files</string>
    </property>
   </action>
  </widget>
