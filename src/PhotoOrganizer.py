@@ -390,7 +390,10 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.closeDatabase()
 
         # Set the new dataset
-        self.model.changeDatabase(dbfile)
+        st, msg = self.model.changeDatabase(dbfile)
+        if not st:
+            warning_box('DB failed to open:\n%s' % msg, self)
+            return
 
         # Make sure table is visible
         if self.view.isHidden():

@@ -17,7 +17,10 @@ def convertCheck(dbfile):
         try:
             fileVersion = con.execute(q).fetchone()[0]
         except:
-            return False, None, 0
+            fileVersion = None
+
+    if fileVersion is None:
+        return False, None, 0
 
     if compareMinor(fileVersion, '0.3') < 0:
         return False, None, fileVersion

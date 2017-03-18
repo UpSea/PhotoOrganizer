@@ -286,11 +286,13 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.beginResetModel()
         if dbfile is None:
             self.dataset.closeDatabase()
+            st, msg = True, ''
         elif os.path.exists(dbfile):
-            self.dataset.openDatabase(dbfile)
+            st, msg = self.dataset.openDatabase(dbfile)
         else:
-            self.dataset.newDatabase(dbfile)
+            st, msg = self.dataset.newDatabase(dbfile)
         self.endResetModel()
+        return st, msg
 
     def setTagState(self, row, fieldName, tag, state):
         """ Insert or remove a tag from a Photo for a given field

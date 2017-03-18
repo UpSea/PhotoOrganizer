@@ -64,6 +64,7 @@ class PhotoDatabase(QtCore.QObject):
         create_database(dbfile)
         self.setDatabaseFile(dbfile)
         self.setFields(self.album.fields)
+        return True, ''
 
     def setDatabaseFile(self, dbfile):
         """ Set the database file
@@ -438,10 +439,11 @@ class PhotoDatabase(QtCore.QObject):
         """ Open a new database """
         st, album = self.load(dbfile)
         if not st:
-            warning_box('DB failed to open:\n%s' % album)
+            return st, album
         self.album = album
         self._dbfile = dbfile
         self.sigNewDatabase.emit()
+        return True, ''
 
     def pop(self, idx):
         filId = self.album[idx].fileId
