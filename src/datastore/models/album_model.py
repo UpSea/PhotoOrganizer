@@ -15,6 +15,7 @@ class AlbumModel(QtCore.QAbstractTableModel):
         """ Initialize Model """
         super(AlbumModel, self).__init__(parent)
         self.dataset = dataset
+        self.dataset.tagsChanged.connect(self.on_tagsChanged)
         self.undoStack = QtGui.QUndoStack()
 
     def columnCount(self, index=model_idx()):
@@ -328,6 +329,9 @@ class AlbumModel(QtCore.QAbstractTableModel):
         """
         date = self.dataset[row].datetime
         return QtCore.QDate(date) if date else None
+
+    def on_tagsChanged(self):
+        self.dataChanged.emit(model_idx(), model_idx())
 
 
 class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):

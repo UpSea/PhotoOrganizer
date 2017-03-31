@@ -19,6 +19,7 @@ class PhotoDatabase(QtCore.QObject):
 
     sigNewDatabase = QtCore.pyqtSignal()
     databaseChanged = QtCore.pyqtSignal()
+    tagsChanged = QtCore.pyqtSignal()
 
     def __init__(self, dbfile=None, parent=None):
         super(PhotoDatabase, self).__init__(parent)
@@ -448,6 +449,22 @@ class PhotoDatabase(QtCore.QObject):
     def pop(self, idx):
         filId = self.album[idx].fileId
         self.deleteFile(filId)
+
+    def renameTag(self, tagId, newName):
+        # Rename the tag in the database
+        q = 'SELECT Value, FieldId FROM Tags WHERE TagId == ?'
+        qf = 'SELECT Name from Fields WHERE FieldId == ?'
+        qu = 'UPDATE Tags SET Value = ? WHERE TagId == ?'
+        with self.connect() as con:
+            oldName, fieldname = con.execute(q, (tagId,)).fetchone()
+            field = con.execute(qf, (fieldname,)).fetchone()[0]
+            con.execute(qu, (newName, tagId))
+        self.databaseChanged.emit()
+
+        # Update the photo objects
+        for photo in self.album:
+            photo[field] = photo[field].replace(oldName, newName)
+        self.tagsChanged.emit()
 
     def setFields(self, fields):
         """ Set the fields table to the given FieldContainerObjects

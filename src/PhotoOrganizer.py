@@ -29,6 +29,7 @@ from send2trash import send2trash
 from shared import (resource_path, __release__, organization, application,
                     BUILD_TIME, frozen, installDir, trashDir)
 import sqlite3
+from TagEditor import TagEditor
 import undo
 import pdb
 
@@ -170,10 +171,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.actionUndoList.triggered.connect(self.on_undoList)
         self.db.sigNewDatabase.connect(self.treeView.newConnection)
         self.db.sigNewDatabase.connect(self.imageViewer.treeView.newConnection)
-        self.db.databaseChanged.connect(self.treeView.updateTree)
-        self.db.databaseChanged.connect(self.imageViewer.treeView.updateTree)
         self.actionCopyPhotos.triggered.connect(self.on_copyPhotos)
 #         self.actionCopyPhotos.triggered.connect(self.on_movePhotos)
+        self.actionEditTags.triggered.connect(self.on_editTags)
 
         # Set the horizontal header for a context menu
         self.horizontalHeader = self.view.horizontalHeader()
@@ -654,6 +654,30 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             self.imageViewer.raise_()
 
     @QtCore.pyqtSlot()
+    def on_editFilterTextChanged(self):
+        """Set the filter
+
+        Slot for the line edit
+
+        Arguments:
+            pattern (str): The pattern for the regular expression
+        """
+        QtGui.qApp.processEvents()
+        pattern = self.editFilter.text()
+        if pattern == self.proxy.filterRegExp().pattern():
+            return
+        search = QtCore.QRegExp(pattern,
+                                QtCore.Qt.CaseInsensitive,
+                                QtCore.QRegExp.RegExp)
+
+        self.proxy.setFilterRegExp(search)
+
+    @QtCore.pyqtSlot()
+    def on_editTags(self):
+        tagEditor = TagEditor(self.db, self)
+        tagEditor.exec_()
+
+    @QtCore.pyqtSlot()
     def on_helpAbout(self):
         """ Create the program about menu and display it """
         mess_str = ("<b>Photo Organizer</b> v{}"
@@ -729,25 +753,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         box.setWindowTitle('Keyboard Shortcuts')
         box.setText(mess_str)
         box.exec_()
-
-    @QtCore.pyqtSlot()
-    def on_editFilterTextChanged(self):
-        """Set the filter
-
-        Slot for the line edit
-
-        Arguments:
-            pattern (str): The pattern for the regular expression
-        """
-        QtGui.qApp.processEvents()
-        pattern = self.editFilter.text()
-        if pattern == self.proxy.filterRegExp().pattern():
-            return
-        search = QtCore.QRegExp(pattern,
-                                QtCore.Qt.CaseInsensitive,
-                                QtCore.QRegExp.RegExp)
-
-        self.proxy.setFilterRegExp(search)
 
     @QtCore.pyqtSlot()
     def on_newDatabase(self):

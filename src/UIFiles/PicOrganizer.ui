@@ -200,6 +200,7 @@ This may take a while if there are many photos. Watch the status bar below for p
     </property>
     <addaction name="actionHideTagged"/>
     <addaction name="actionNewField"/>
+    <addaction name="actionEditTags"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -339,17 +340,22 @@ This may take a while if there are many photos. Watch the status bar below for p
     <string>Import Files</string>
    </property>
   </action>
+  <action name="actionEditTags">
+   <property name="text">
+    <string>Edit Tags</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>PhotoTable</class>
-   <extends>QTableView</extends>
-   <header>photo_table</header>
-  </customwidget>
   <customwidget>
    <class>TagTreeView</class>
    <extends>QTreeView</extends>
    <header>FilterTree</header>
+  </customwidget>
+  <customwidget>
+   <class>PhotoTable</class>
+   <extends>QTableView</extends>
+   <header>photo_table</header>
   </customwidget>
  </customwidgets>
  <tabstops>

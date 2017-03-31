@@ -41,6 +41,12 @@ class Photo(dict):
         else:
             return super(Photo, self).__getitem__(self.field_by_name(key))
 
+    def __setitem__(self, key, value):
+        if isinstance(key, FieldObject):
+            return super(Photo, self).__setitem__(key, value)
+        else:
+            return super(Photo, self).__setitem__(self.field_by_name(key), value)
+
     def __repr__(self):
         return '<Photo: %s>' % dict.__repr__(self)
 

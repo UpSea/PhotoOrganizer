@@ -14,6 +14,7 @@ class TagTreeView(QtGui.QTreeView):
 
     FilterMode = 1
     TagMode = 2
+    EditMode = 3
 
     def __init__(self, parent=None, mode=FilterMode):
         super(TagTreeView, self).__init__(parent)
@@ -53,6 +54,7 @@ class TagTreeView(QtGui.QTreeView):
         # Create the new tag item and append parent
         child = QtGui.QStandardItem('<New {}>'.format(parent.text()))
         child.id = None
+        child.tag = None
         child.setFlags(Qt.ItemIsEnabled | Qt.ItemIsEditable)
         parent.appendRow(child)
 
@@ -70,7 +72,7 @@ class TagTreeView(QtGui.QTreeView):
         self.model().sort(0)
         return parent
 
-    def addTag(self, cat, tagId, tagValue):
+    def addTag(self, cat, tagId, tagValue, cnt=None):
         """ Add a tag item to the given category item
 
         Arguments:
@@ -78,6 +80,7 @@ class TagTreeView(QtGui.QTreeView):
                 be either the category model item itself, or the category Id
             tagId (int): The ID of the tag to add
             tagValue (str): The tag value to add
+            cnt (int)
         """
         # Get the parent item
         if isinstance(cat, QtGui.QStandardItem):
@@ -86,10 +89,19 @@ class TagTreeView(QtGui.QTreeView):
             parent = self.sourceModel.catItemById(cat)
 
         # Create the new tag item and append parent
-        child = QtGui.QStandardItem(tagValue)
+        if cnt is not None and self.mode == self.EditMode:
+            val = '%s (%d)' % (tagValue, cnt)
+        else:
+            val = tagValue
+        child = QtGui.QStandardItem(val)
         child.id = tagId
-        child.setFlags(child.flags() | QtCore.Qt.ItemIsUserCheckable)
-        child.setCheckState(QtCore.Qt.Unchecked)
+        child.tag = tagValue
+        flags = child.flags()
+        if self.mode not in (self.EditMode,):
+            flags |= QtCore.Qt.ItemIsUserCheckable
+        child.setFlags(flags)
+        if self.mode not in (self.EditMode,):
+            child.setCheckState(QtCore.Qt.Unchecked)
         child.setEditable(False)
         parent.appendRow(child)
 
@@ -141,7 +153,7 @@ class TagTreeView(QtGui.QTreeView):
         # Loop through all items and create the output dictionary
         out = {}
         for item in items:
-            itemText = str(item.text())
+            itemText = str(item.tag)
             fieldName = str(item.parent().text())
             if fieldName in out:
                 out[fieldName].append(itemText)
@@ -178,6 +190,7 @@ class TagTreeView(QtGui.QTreeView):
             db (PhotoDatabase)
         """
         self.db = db
+        self.db.databaseChanged.connect(self.updateTree)
         self.newConnection()
 
     def uncheckAll(self):
@@ -198,7 +211,10 @@ class TagTreeView(QtGui.QTreeView):
         cats = con.execute(catQ).fetchall()
         cd = {c[1]: c[0] for c in cats}
 
-        tagQ = 'SELECT TagId, Value from Tags WHERE FieldId == ?'
+        tagQ = ('SELECT t.TagId, Value, COUNT(tm.FilId) from Tags as t '
+                'LEFT OUTER JOIN TagMap as tm '
+                'ON t.TagId == tm.TagId WHERE FieldId == ? '
+                'GROUP BY t.TagId')
         tags = {cat[1]: [k for k in con.execute(tagQ, (cat[0],))]
                 for cat in cats}
 
@@ -215,14 +231,13 @@ class TagTreeView(QtGui.QTreeView):
 
         # Create the items and add to model
         for cat in tags.keys():
-
             if cat.lower() in alreadyFields:
                 parent = model.findItems(cat, QtCore.Qt.MatchFixedString)
                 if len(parent) != 1:
                     msg = '{} tag fields names {} found'
                     raise ValueError(msg.format(len(parent), cat))
                 parent = parent[0]
-                alreadyTags = [str(parent.child(r).text()).lower()
+                alreadyTags = [str(parent.child(r).tag).lower()
                                for r in range(parent.rowCount())]
 
                 # Remove deleted tags
@@ -323,7 +338,7 @@ class TagItemModel(QtGui.QStandardItemModel):
             fielId (int): The id of the field that contains the tag
         """
         parent = self.catItemById(fieldId)
-        itemText = [str(parent.child(k).text()).lower()
+        itemText = [str(parent.child(k).tag).lower()
                     for k in range(parent.rowCount())]
         return parent.child(itemText.index(tagName.lower()))
 
@@ -356,7 +371,7 @@ class TagItemModel(QtGui.QStandardItemModel):
 
     def getCheckedTagNames(self):
         """ Return the tag name for each checked tag """
-        return [str(k.text()) for k in self.getCheckedItems()]
+        return [str(k.tag) for k in self.getCheckedItems()]
 
     def getFilteredTags(self, catId):
         """ Return the filtered tag ids for any tags in the given category
@@ -376,13 +391,13 @@ class TagItemModel(QtGui.QStandardItemModel):
             # each file that has any of the tags. Those file ids are then used
             # to narrow the search for tag ids for a given field
             # I'm not sure I'm explaining that well
-            sel = ('SELECT distinct(TagId) FROM AllTags '+
+            sel = ('SELECT TagId, count(*) as cnt FROM AllTags '+
                    'WHERE FieldId == ? '+
                    'AND FilId in (SELECT FilId FROM '+
                    '(SELECT FilId, count(FilId) as cnt FROM TagMap '+
                    'WHERE TagId in ({}) '+
                    'GROUP BY FilId) '+
-                   'WHERE cnt == ?)')
+                   'WHERE cnt == ?) GROUP BY TagId')
             params = [catId] + checkedTags + [len(checkedTags)]
             res = con.execute(sel.format(tagstr), params).fetchall()
             return map(int, checkedTags) + map(lambda x: x[0], res)
@@ -416,7 +431,7 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
             sourceParent (QModelIndex): The index of the row's parent.
         """
         # Don't filter in Tag Mode
-        if self.parent().mode == TagTreeView.TagMode:
+        if self.parent().mode in (TagTreeView.TagMode, TagTreeView.EditMode):
             return True
 
         # Always accept parent items
@@ -449,14 +464,16 @@ class TagFilterProxyModel(QtGui.QSortFilterProxyModel):
             return True
         return super(TagFilterProxyModel, self).lessThan(leftIndex, rightIndex)
 
+
 if __name__ == "__main__":
-#     dbfile = 'v0.3.pdb'
-    dbfile = '..\\Fresh5b.pdb'
+#     dbfile = '..\\v0.5.pdb'
+    dbfile = '..\\Fresh5d.pdb'
     app = QtGui.QApplication([])
     db = PhotoDatabase(dbfile)
 
-    tree = TagTreeView(mode=TagTreeView.TagMode)
+#     tree = TagTreeView(mode=TagTreeView.TagMode)
 #     tree = TagTreeView(mode=TagTreeView.FilterMode)
+    tree = TagTreeView(mode=TagTreeView.EditMode)
     proxy = tree.model()
     model = proxy.sourceModel()
     # Only  needed here. Photo's slot calls invalidate
@@ -471,7 +488,7 @@ if __name__ == "__main__":
 #     app.processEvents()
 
 #     print tree.getCheckedTagDict(lower=True)
-    tree.checkFileTags([1, 3])
+#     tree.checkFileTags([1, 3])
 
 #     import time
 #     time.sleep(2)
