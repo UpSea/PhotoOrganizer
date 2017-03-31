@@ -109,6 +109,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         # Instantiate an empty dataset and model
         self.model = AlbumModel(self.db)
         self.model.undoStack = self.undoStack
+        # This connection is needed because when renaming tags, dataChanged
+        # wouldn't result in updating the view.
+        self.model.dataChanged.connect(self.view.viewport().repaint)
 
         self.proxy = AlbumSortFilterModel(self)
         self.proxy.setSourceModel(self.model)
@@ -674,7 +677,11 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
     @QtCore.pyqtSlot()
     def on_editTags(self):
-        tagEditor = TagEditor(self.db, self)
+        """ Launch the tag editor dialog
+
+        Slot for the Edit Tags menu action
+        """
+        tagEditor = TagEditor(self.model, self)
         tagEditor.exec_()
 
     @QtCore.pyqtSlot()

@@ -15,7 +15,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         """ Initialize Model """
         super(AlbumModel, self).__init__(parent)
         self.dataset = dataset
-        self.dataset.tagsChanged.connect(self.on_tagsChanged)
         self.undoStack = QtGui.QUndoStack()
 
     def columnCount(self, index=model_idx()):
@@ -295,6 +294,16 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.endResetModel()
         return st, msg
 
+    def renameTag(self, tagId, newName):
+        """ Rename a tag
+
+        Arguments:
+            tagId (int): The db id of the tag to rename
+            newName (str): The new tag name
+        """
+        cmd = renameTagCmd(self, tagId, newName)
+        self.undoStack.push(cmd)
+
     def setTagState(self, row, fieldName, tag, state):
         """ Insert or remove a tag from a Photo for a given field
 
@@ -329,9 +338,6 @@ class AlbumModel(QtCore.QAbstractTableModel):
         """
         date = self.dataset[row].datetime
         return QtCore.QDate(date) if date else None
-
-    def on_tagsChanged(self):
-        self.dataChanged.emit(model_idx(), model_idx())
 
 
 class AlbumSortFilterModel(QtGui.QSortFilterProxyModel):
@@ -556,11 +562,40 @@ class deleteCmd(QtGui.QUndoCommand):
             self.model.setData(cell, val)
 
 
+class renameTagCmd(QtGui.QUndoCommand):
+    """ Undo command for re-naming a tag
+
+    Arguments:
+        model (AlbumModel):
+        tagId (int): The db id of the tag to rename
+        newName (str): The new tag name
+    """
+
+    description = "Rename Tag"
+
+    def __init__(self, model, tagId, newName, parent=None):
+        self.model = model
+        self.tagId = tagId
+        self.newName = newName
+        self.oldName = model.dataset.tagById(tagId)[0]
+
+        desc = '{} "{}" -> "{}"'.format(self.description, self.oldName, newName)
+        super(renameTagCmd, self).__init__(desc, parent)
+
+    def redo(self):
+        self.model.dataset.renameTag(self.tagId, self.newName)
+        self.model.dataChanged.emit(model_idx(), model_idx())
+
+    def undo(self):
+        self.model.dataset.renameTag(self.tagId, self.oldName)
+        self.model.dataChanged.emit(model_idx(), model_idx())
+
+
 class setDataCmd(QtGui.QUndoCommand):
     """Undo command for setting of cell data in the AlbumModel
 
     Arguments:
-        model (TabularFieldModel):
+        model (AlbumModel):
         index (QModelIndex):
         value (QVariant):
     """
@@ -579,9 +614,11 @@ class setDataCmd(QtGui.QUndoCommand):
 
     def redo(self):
         self.model._setData(self.index, self.newvalue)
+        self.model.dataChanged.emit(model_idx(), model_idx())
 
     def undo(self):
         self.model._setData(self.index, self.oldvalue)
+        self.model.dataChanged.emit(model_idx(), model_idx())
 
 
 if __name__ == "__main__":

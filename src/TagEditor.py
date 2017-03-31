@@ -3,9 +3,9 @@ from UIFiles import Ui_TagEditor
 
 
 class TagEditor(QtGui.QDialog, Ui_TagEditor):
-    """ An image viewer """
+    """ An dialog for editing tag names """
 
-    def __init__(self, db, parent=None):
+    def __init__(self, model, parent=None):
         super(TagEditor, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() &
@@ -13,11 +13,11 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
         self.setWindowTitle('Edit Tags')
         self.buttonDelete.setHidden(True)
 
-        self.db = db
+        self.model = model
 
         self.treeView.setMode(self.treeView.EditMode)
         self.treeView.header().setVisible(False)
-        self.treeView.setDb(db)
+        self.treeView.setDb(model.dataset)
         self.treeView.expandAll()
 
         # Signals and slots
@@ -25,6 +25,7 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
 
     @QtCore.pyqtSlot()
     def on_rename(self):
+        """ Prompt user for new tag name and execute the rename """
         idx = self.treeView.selectedIndexes()[0]
         proxy = self.treeView.model()
         mi = proxy.mapToSource(idx)
@@ -38,17 +39,18 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
                                           text=item.tag)[0]
         if not name:
             return
-        self.db.renameTag(tagId, str(name))
+        self.model.renameTag(tagId, str(name))
 
 
 if __name__ == "__main__":
-    from datastore import PhotoDatabase
+    from datastore import PhotoDatabase, AlbumModel
     app = QtGui.QApplication([])
 
     dbfile = '..\\Fresh5d.pdb'
     db = PhotoDatabase(dbfile)
+    model = AlbumModel(db)
 
-    win = TagEditor(db)
+    win = TagEditor(model)
     win.show()
 
     app.exec_()

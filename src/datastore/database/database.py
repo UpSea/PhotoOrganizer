@@ -19,7 +19,6 @@ class PhotoDatabase(QtCore.QObject):
 
     sigNewDatabase = QtCore.pyqtSignal()
     databaseChanged = QtCore.pyqtSignal()
-    tagsChanged = QtCore.pyqtSignal()
 
     def __init__(self, dbfile=None, parent=None):
         super(PhotoDatabase, self).__init__(parent)
@@ -451,6 +450,12 @@ class PhotoDatabase(QtCore.QObject):
         self.deleteFile(filId)
 
     def renameTag(self, tagId, newName):
+        """ Rename a tag
+
+        Arguments:
+            tagId (int): The db id of the tag to rename
+            newName (str): The new tag name
+        """
         # Rename the tag in the database
         q = 'SELECT Value, FieldId FROM Tags WHERE TagId == ?'
         qf = 'SELECT Name from Fields WHERE FieldId == ?'
@@ -464,7 +469,6 @@ class PhotoDatabase(QtCore.QObject):
         # Update the photo objects
         for photo in self.album:
             photo[field] = photo[field].replace(oldName, newName)
-        self.tagsChanged.emit()
 
     def setFields(self, fields):
         """ Set the fields table to the given FieldContainerObjects
@@ -518,6 +522,16 @@ class PhotoDatabase(QtCore.QObject):
         with self.connect() as con:
             res = con.execute(q, (fileId,))
             return [k[0] for k in res]
+
+    def tagById(self, tagId):
+        """ Return the tag and field names for the given tag id
+
+        Arguments:
+            tagId (int): The db id of the tag
+        """
+        q = 'SELECT value, field FROM TagList WHERE TagId == ?'
+        with self.connect() as con:
+            return con.execute(q, (tagId,)).fetchone()
 
     def setThumb(self, fileId, thumb):
         """ Set the thumbnail blob in the database
