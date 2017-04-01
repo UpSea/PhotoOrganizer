@@ -287,7 +287,9 @@ class TagTreeView(QtGui.QTreeView):
             item = self.sourceModel.itemById(ids[0], fieldId)
         else:
             item = self.sourceModel.itemByText(str(name), fieldId)
-        item.setCheckState(QtCore.Qt.Checked)
+
+        if self.mode not in (self.EditMode,):
+            item.setCheckState(QtCore.Qt.Checked)
 
     @property
     def mode(self):
