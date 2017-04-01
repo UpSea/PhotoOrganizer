@@ -294,6 +294,15 @@ class AlbumModel(QtCore.QAbstractTableModel):
         self.endResetModel()
         return st, msg
 
+    def deleteTag(self, tagId):
+        """ Delete a tag and all references to it
+
+        Arguments:
+            tagId (int): The db id of the tag to delete
+        """
+        cmd = deleteTagCmd(self, tagId)
+        self.undoStack.push(cmd)
+
     def renameTag(self, tagId, newName):
         """ Rename a tag
 
@@ -562,6 +571,39 @@ class deleteCmd(QtGui.QUndoCommand):
             self.model.setData(cell, val)
 
 
+class deleteTagCmd(QtGui.QUndoCommand):
+    """ Undo command for deleting a tag
+
+    Arguments:
+        model (AlbumModel):
+        tagId (int): The db id of the tag to delete
+    """
+
+    description = "Delete Tag"
+
+    def __init__(self, model, tagId, parent=None):
+        self.model = model
+        self.tagId = tagId
+        self.name, self.fieldId = model.dataset.tagById(tagId)
+        self.files = None
+
+        desc = '{}: "{}"'.format(self.description, self.name)
+        super(deleteTagCmd, self).__init__(desc, parent)
+
+    def redo(self):
+        files = self.model.dataset.deleteTag(self.tagId)
+        if self.files is None:
+            self.files = files
+        self.model.dataChanged.emit(model_idx(), model_idx())
+
+    def undo(self):
+        # Re-insert the tag
+        self.tagId = self.model.dataset.insertTags(self.fieldId, self.name)[0]
+        # Re-map
+        self.model.dataset.mapTags(self.tagId, self.files)
+        self.model.dataChanged.emit(model_idx(), model_idx())
+
+
 class renameTagCmd(QtGui.QUndoCommand):
     """ Undo command for re-naming a tag
 
@@ -579,7 +621,7 @@ class renameTagCmd(QtGui.QUndoCommand):
         self.newName = newName
         self.oldName = model.dataset.tagById(tagId)[0]
 
-        desc = '{} "{}" -> "{}"'.format(self.description, self.oldName, newName)
+        desc = '{}: "{}" -> "{}"'.format(self.description, self.oldName, newName)
         super(renameTagCmd, self).__init__(desc, parent)
 
     def redo(self):

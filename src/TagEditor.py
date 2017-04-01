@@ -11,7 +11,6 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
         self.setWindowFlags(self.windowFlags() &
                             (~QtCore.Qt.WindowContextHelpButtonHint))
         self.setWindowTitle('Edit Tags')
-        self.buttonDelete.setHidden(True)
 
         self.model = model
 
@@ -22,14 +21,30 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
 
         # Signals and slots
         self.buttonRename.clicked.connect(self.on_rename)
+        self.buttonDelete.clicked.connect(self.on_delete)
 
-    @QtCore.pyqtSlot()
-    def on_rename(self):
-        """ Prompt user for new tag name and execute the rename """
+    def getSelectedItem(self):
+        """ Return the model item that is selected """
         idx = self.treeView.selectedIndexes()[0]
         proxy = self.treeView.model()
         mi = proxy.mapToSource(idx)
         item = self.treeView.model().sourceModel().itemFromIndex(mi)
+        return item
+
+    @QtCore.pyqtSlot()
+    def on_delete(self):
+        """ Delete the selected tag """
+        item = self.getSelectedItem()
+        if item.parent() is None:
+            # This is a field
+            return
+        tagId = item.id
+        self.model.deleteTag(tagId)
+
+    @QtCore.pyqtSlot()
+    def on_rename(self):
+        """ Prompt user for new tag name and execute the rename """
+        item = self.getSelectedItem()
         if item.parent() is None:
             # This is a field
             return

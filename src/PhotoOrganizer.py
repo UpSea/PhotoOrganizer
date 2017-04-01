@@ -875,10 +875,10 @@ if __name__ == "__main__":
     import sys
 
     app = QtGui.QApplication(sys.argv)
-#     main = PhotoOrganizer()
+    main = PhotoOrganizer()
 
-    print '*** Log Window Not Used ***'
-    main = PhotoOrganizer(useLogWindow=False)
+#     print '*** Log Window Not Used ***'
+#     main = PhotoOrganizer(useLogWindow=False)
 
     main.resize(800, 600)
     main.show()

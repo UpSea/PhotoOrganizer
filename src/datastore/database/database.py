@@ -96,6 +96,35 @@ class PhotoDatabase(QtCore.QObject):
         dex = [k.fileId for k in self.album].index(filId)
         self.album.pop(dex)
 
+    def deleteTag(self, tagId):
+        """ Delete a tag and all references to it
+
+        Arguments:
+            tagId (int): The db id of the tag to delete
+        """
+        fq = 'SELECT FilId FROM TagMap WHERE TagId == ?'
+        fieldq = 'SELECT Field, Value FROM TagList WHERE TagId == ?'
+        dq1 = 'DELETE FROM TagMap WHERE TagId == ?'
+        dq2 = 'DELETE FROM Tags WHERE TagId == ?'
+        with self.connect() as con:
+            fileIDs = [k[0] for k in con.execute(fq, (tagId,))]
+            field, tag = con.execute(fieldq, (tagId,)).fetchone()
+
+            con.execute(dq1, (tagId,))
+            con.execute(dq2, (tagId,))
+        self.databaseChanged.emit()
+
+        # Update the table view
+        for photo in self.album:
+            tags = photo.tags(field)
+            ltags = [k.lower() for k in tags]
+            if tag.lower() in ltags:
+                dex = ltags.index(tag.lower())
+                tags.pop(dex)
+                photo[field] = '; '.join(tags)
+
+        return fileIDs
+
     def dropField(self, idx, force=False):
         """ Drop a category from the database. All tags associated with that
         category will be removed
@@ -427,6 +456,28 @@ class PhotoDatabase(QtCore.QObject):
 
         return True, album
 
+    def mapTags(self, tagId, fileIds):
+        """ Add tag/file mappings
+
+        Arguments:
+            tagId (int): The db id of the tag to map
+            fileIds ([int]): A list of file ids to map the tag to
+        """
+        vals = [(tagId, k) for k in fileIds]
+        q = 'INSERT INTO TagMap (TagId, FilId) VALUES (?,?)'
+        fq = 'SELECT value, Field FROM TagList WHERE TagId == ?'
+        with self.connect() as con:
+            con.executemany(q, vals)
+            tag, field = con.execute(fq, (tagId,)).fetchone()
+
+        # Update the table view
+        for photo in self.album:
+            if (photo.fileId in fileIds and
+                    tag.lower() not in photo[field].lower()):
+                photo[field] = photo[field] + '; ' + tag
+
+        self.databaseChanged.emit()
+
     def nextDefaultField(self):
         """ Return the next numbered default field name """
         # Account for any existing fields with generic numbered names
@@ -529,7 +580,7 @@ class PhotoDatabase(QtCore.QObject):
         Arguments:
             tagId (int): The db id of the tag
         """
-        q = 'SELECT value, field FROM TagList WHERE TagId == ?'
+        q = 'SELECT value, fieldId FROM TagList WHERE TagId == ?'
         with self.connect() as con:
             return con.execute(q, (tagId,)).fetchone()
 
@@ -558,7 +609,7 @@ class PhotoDatabase(QtCore.QObject):
         with self.connect() as con:
             con.execute(q, kwargs.values())
 
-    def updateAlbum(self, fileIds, fieldnames):
+    def updateDatabase(self, fileIds, fieldnames):
         """ Update the database when user changes data
 
         Generally Called by the slot for the model's albumChanged signal.
@@ -689,7 +740,7 @@ class PhotoDatabase(QtCore.QObject):
         # Set photo data
         self.album[entry, fdex] = value
         # Update database
-        self.updateAlbum([self.album[entry].fileId], [self.fields[fdex].name])
+        self.updateDatabase([self.album[entry].fileId], [self.fields[fdex].name])
 
     ################
     #  Properties  #
