@@ -562,6 +562,16 @@ class PhotoDatabase(QtCore.QObject):
                 con.executemany('DELETE FROM Fields WHERE Name = ?', dcommands)
         self.databaseChanged.emit()
 
+    def tagsByField(self, fieldId):
+        """ Return a list of tag names for the given field ID
+
+        Arguments:
+            fieldId (int)
+        """
+        q = 'SELECT Value FROM Tags WHERE FieldId == ?'
+        with self.connect() as con:
+            return [k[0] for k in con.execute(q, (fieldId,))]
+
     def tagsByFileId(self, fileId):
         """ Return a list of Tag IDs that are applied to the given photo
 
@@ -575,7 +585,7 @@ class PhotoDatabase(QtCore.QObject):
             return [k[0] for k in res]
 
     def tagById(self, tagId):
-        """ Return the tag and field names for the given tag id
+        """ Return the tag name and field ID for the given tag ID
 
         Arguments:
             tagId (int): The db id of the tag

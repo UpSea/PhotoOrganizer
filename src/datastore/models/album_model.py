@@ -310,8 +310,13 @@ class AlbumModel(QtCore.QAbstractTableModel):
             tagId (int): The db id of the tag to rename
             newName (str): The new tag name
         """
+        fieldId = self.dataset.tagById(tagId)[1]
+        otherTags = [k.lower() for k in self.dataset.tagsByField(fieldId)]
+        if newName.lower() in otherTags:
+            return False
         cmd = renameTagCmd(self, tagId, newName)
         self.undoStack.push(cmd)
+        return True
 
     def setTagState(self, row, fieldName, tag, state):
         """ Insert or remove a tag from a Photo for a given field

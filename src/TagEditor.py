@@ -1,5 +1,6 @@
 from PyQt4 import QtCore, QtGui
 from UIFiles import Ui_TagEditor
+from Dialogs import warning_box
 
 
 class TagEditor(QtGui.QDialog, Ui_TagEditor):
@@ -54,7 +55,10 @@ class TagEditor(QtGui.QDialog, Ui_TagEditor):
                                           text=item.tag)[0]
         if not name:
             return
-        self.model.renameTag(tagId, str(name))
+        st = self.model.renameTag(tagId, str(name))
+        if not st:
+            warning_box('%s already exists. Reassign tags then delete' % name,
+                        self)
 
 
 if __name__ == "__main__":
