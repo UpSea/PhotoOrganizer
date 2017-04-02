@@ -3,7 +3,7 @@ import sys
 import re
 
 
-__release__ = '0.5.1'
+__release__ = '0.5.2'
 
 # These are used in the settings
 organization = "McNinch Custom"

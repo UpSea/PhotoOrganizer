@@ -1,3 +1,16 @@
+v0.5.2
+Updates:
+- "Import Files" feature now allows user to import specific files rather than
+    entire folder
+- Edit Tags dialog for re-naming and deleting tags.
+
+Bug Fixes:
+- New database isn't stored with App Data, causes failure to open
+- Group tag very slow
+- Opening DB fails when file(s) have unknown date. DB opens but several steps at end of process are missed.
+
+
+
 v0.5.1
 Updates:
 - Photos can be rotated using Image Viewer
