@@ -474,7 +474,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         def timestamp(x):
             try:
                 return x.datetime.toordinal()
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AttributeError):
                 return
 
         timestamps = [k for k in map(timestamp, self.album) if k]
