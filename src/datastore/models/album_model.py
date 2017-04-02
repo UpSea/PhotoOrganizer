@@ -197,7 +197,8 @@ class AlbumModel(QtCore.QAbstractTableModel):
             rvalues = [rvalues]*len(rows)
         old = [{f: None for f in values[0]} for _ in rows]
         # Loop over columns then rows to set the data for each index
-        for fieldname in set(values[0].keys() + rvalues[0].keys()):
+        fieldnames = set(values[0].keys() + rvalues[0].keys())
+        for fieldname in fieldnames:
             col = self.dataset.fields.index(fieldname)
             field = self.dataset.fields[col]
             left = min(left, col)
@@ -232,7 +233,9 @@ class AlbumModel(QtCore.QAbstractTableModel):
                     cvalue = self._getSetValue(field,
                                                QtCore.QVariant('; '.join(replace)))
                 # Set the data
-                self.dataset[row, field] = cvalue
+                self.dataset.album[row, field] = cvalue
+        fileIds = [self.dataset[k].fileId for k in rows]
+        self.dataset.updateDatabase(fileIds, fieldnames)
         topLeft = self.index(top, left)
         bottomRight = self.index(bottom, right)
         self.dataChanged.emit(topLeft, bottomRight)
