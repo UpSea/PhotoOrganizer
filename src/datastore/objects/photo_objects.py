@@ -98,6 +98,10 @@ class Photo(dict):
     def directory(self):
         return self[Album.directoryField]
 
+    @directory.setter
+    def directory(self, value):
+        self[Album.directoryField] = value
+
     @property
     def fileId(self):
         if Album.fileIdField in [k.name for k in self]:

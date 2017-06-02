@@ -500,6 +500,33 @@ class PhotoDatabase(QtCore.QObject):
         filId = self.album[idx].fileId
         self.deleteFile(filId)
 
+    def relocateFiles(self, paths):
+        """ Change the directory of existing files in the database
+
+        Arguments:
+            paths ([(str, int)]): A list of tuples containing the full path to
+                the files to be updated and their database fileId
+        """
+        q = 'UPDATE File set directory = ? WHERE FilId == ?'
+        params = [(os.path.split(path)[0], Id) for path, Id in paths]
+        # Update the database
+        with self.connect() as con:
+            con.executemany(q, params)
+        self.databaseChanged.emit()
+
+        # Update the photo objects
+        updateDict = {Id: os.path.split(path)[0] for path, Id in paths}
+        rowrange = None
+        for k, photo in enumerate(self.album):
+            if photo.fileId in updateDict:
+                photo.directory = updateDict[photo.fileId]
+                if rowrange is None:
+                    rowrange = [k, k]
+                else:
+                    rowrange[1] = k
+        col = self.album.field_names.index(self.album.directoryField)
+        return col, rowrange
+
     def renameTag(self, tagId, newName):
         """ Rename a tag
 

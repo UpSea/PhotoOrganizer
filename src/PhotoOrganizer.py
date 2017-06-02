@@ -312,7 +312,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         Arguments:
             images ([str]): A list of full paths to image files
         """
-        exHash = [(k['File Name'], k['Hash']) for k in self.album]
+        exHash = {(k['File Name'], k['Hash']): k.fileId for k in self.album}
         exFiles = [os.path.join(k['Directory'], k['File Name'])
                    for k in self.album]
 
@@ -333,8 +333,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             except Exception:
                 exif = None
             hsh = imagehash.average_hash(im)
-            if (fname, str(hsh)) in exHash:
-                changeDir.append(path)
+            exHashKey = (fname, str(hsh))
+            if exHashKey in exHash:
+                changeDir.append((path, exHash[exHashKey]))
                 continue
             # Try to get date from exif
             date = None
@@ -377,14 +378,24 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         if changeDir:
             dlg = WarningDialog('Matching Files Found', self)
-            dlg.setText('The following files already exist in the database '+
-                        'but are located in a different folder.\n'+
-                        'Not yet equipped to handle this. These files were '+
-                        'were ignored')
-            detail = '\n'.join(changeDir)
+            msg = 'The following {} files appear to exist in the database '+ \
+                  'but are located in a different folder.\n'+ \
+                  'Their location (directory) in the database can be updated. '+ \
+                  "The image files won't be moved"
+            dlg.setText(msg.format(len(changeDir)))
+            dlg.setQuestionText('Do you want to update? Ignore to skip these '
+                                'files')
+            detail = '\n'.join([j[0] for j in changeDir])
             dlg.setDetailedText(detail)
-            dlg.addButton(QtGui.QDialogButtonBox.Ok)
+            yesbut = dlg.addButton(QtGui.QDialogButtonBox.Yes)
+            dlg.addButton(QtGui.QDialogButtonBox.Ignore)
             dlg.exec_()
+
+            if dlg.clickedButton() == yesbut:
+                col, rowrange = self.db.relocateFiles(changeDir)
+                sidex = self.model.index(col, rowrange[0])
+                eidex = self.model.index(col, rowrange[1])
+                self.model.dataChanged.emit(sidex, eidex)
 
         self.setWidthHeight()
         self.clearFilters()
@@ -875,10 +886,10 @@ if __name__ == "__main__":
     import sys
 
     app = QtGui.QApplication(sys.argv)
-    main = PhotoOrganizer()
+#     main = PhotoOrganizer()
 
-#     print '*** Log Window Not Used ***'
-#     main = PhotoOrganizer(useLogWindow=False)
+    print '*** Log Window Not Used ***'
+    main = PhotoOrganizer(useLogWindow=False)
 
     main.resize(800, 600)
     main.show()

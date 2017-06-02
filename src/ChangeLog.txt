@@ -1,3 +1,10 @@
+v0.5.4
+Updates:
+- When importing, if files are found matching files already in database, the
+    user will be prompted to update the directory of the files already in the
+    database. If the user chooses to ignore, the files won't be imported and
+    the existing files won't be updated.
+
 v0.5.2
 Updates:
 - "Import Files" feature now allows user to import specific files rather than
