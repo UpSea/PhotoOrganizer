@@ -3,7 +3,12 @@ Updates:
 - When importing, if files are found matching files already in database, the
     user will be prompted to update the directory of the files already in the
     database. If the user chooses to ignore, the files won't be imported and
-    the existing files won't be updated.
+    the existing files won't be updated
+
+Bug Fixes:
+- Undo stack is cleared if new database is opened
+
+
 
 v0.5.2
 Updates:

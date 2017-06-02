@@ -279,6 +279,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Close the current album and database
         self.model.changeDatabase(None)
+        
+        # Clear the undo stack
+        self.undoStack.clear()
 
     def saveAppData(self):
         """ Save database-specific settings """
