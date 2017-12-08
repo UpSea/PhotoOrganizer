@@ -63,9 +63,12 @@ class removeRowCmd(QtGui.QUndoCommand):
             self.main.view.setCurrentPhoto(newRow)
 
         # Move the file to the trash
-        trashTime = datetime.now().strftime('.%Y%m%d%H%M%S')
-        self.trashFile = os.path.join(trashDir, self.photo.fileName + trashTime)
-        shutil.move(self.photo.filePath, self.trashFile)
+        if os.path.exists(self.photo.filePath):
+            trashTime = datetime.now().strftime('.%Y%m%d%H%M%S')
+            self.trashFile = os.path.join(trashDir, self.photo.fileName + trashTime)
+            shutil.move(self.photo.filePath, self.trashFile)
+        else:
+            self.trashFile = None
 
         # Update the viewer
         self.viewer.imageList.remove(self.photo)
@@ -86,7 +89,8 @@ class removeRowCmd(QtGui.QUndoCommand):
             self.main.view.setCurrentPhoto(self.row)
 
         # Restore the file from the trash
-        shutil.move(self.trashFile, self.photo.filePath)
+        if self.trashFile is not None:
+            shutil.move(self.trashFile, self.photo.filePath)
 
         # Update the viewer
         self.viewer.imageList.insert(self.index, self.photo)
