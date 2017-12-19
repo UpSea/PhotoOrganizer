@@ -3,7 +3,7 @@ from PIL import Image
 from io import BytesIO
 
 
-def getThumbnailIcon(filePath, size=400):
+def getThumbnailIcon(filePath, size=200):
     if isinstance(filePath, basestring):
         im = Image.open(filePath)
         im.thumbnail((size, size))

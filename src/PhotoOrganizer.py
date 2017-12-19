@@ -68,7 +68,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         self.options = {'importFolder': os.path.expanduser("~")}
 
         # Set up the widgets
-        self.slider.setRange(20, 400)
+        self.slider.setRange(20, 200)
         self.slider.setValue(100)
         self.slider.valueChanged.connect(self.on_sliderValueChanged)
 
@@ -279,7 +279,7 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
 
         # Close the current album and database
         self.model.changeDatabase(None)
-        
+
         # Clear the undo stack
         self.undoStack.clear()
 
@@ -306,7 +306,6 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
         for extension in QtGui.QImageReader().supportedImageFormats():
             pattern = os.path.join(directory, '*.%s' % str(extension))
             images.extend(glob(pattern))
-
         self.importFiles(images)
 
     def importFiles(self, images):
