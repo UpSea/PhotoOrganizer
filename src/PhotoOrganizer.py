@@ -413,6 +413,9 @@ class PhotoOrganizer(QtGui.QMainWindow, uiclassf):
             warning_box(msg, self)
             return
 
+        # Change the label
+        self.labelNoDatabase.setText('Opening {}\nPleaseWait'.format(dbfile))
+
         # Close the exiting database
         self.closeDatabase()
 
